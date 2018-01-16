@@ -1,0 +1,29 @@
+{
+  "name": "cheukpang/txt-sql",
+  "description": "Framework that uses a subset of SQL and provides php developers an alternative solution to tables and atabases, particularly those who do not have a database service (like mySQL, SQLite, MSSQL, ORACLE...)",
+  "minimum-stability": "dev",
+  "license": "Apache-2.0",
+  "authors": [
+    {
+      "name": "kwan",
+      "email": "303198069@qq.com"
+    }
+  ],
+  "repositories": {
+    "packagist": {
+      "type": "composer",
+      "url": "https://packagist.phpcomposer.com"
+    }
+  },
+  "require": {
+    "php": ">=7.1.0"
+  },
+  "autoload": {
+    "files": [
+      "src/Helper/function.php"
+    ],
+    "psr-4": {
+      "TxtSQL\\": "src/TxtSQL"
+    }
+  }
+}
