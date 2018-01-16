@@ -27,14 +27,22 @@ class TxtSQL
      * @var array
      * @see    readFile()
      */
-    protected $_CACHE = [];
+    protected $cache = [];
 
     /**
      * Holds the path of the txtSQL data directory
      *
      * @var string
      */
-    protected $_LIBPATH = null;
+    protected $dbPath = null;
+
+    /**
+     * Holds the name of the currently logged in user
+     *
+     * @var string
+     * @see    _isConnected()
+     */
+    private $dbUser = null;
 
     /**
      * Holds the md5() hash of the password of the currently logged in user
@@ -43,7 +51,7 @@ class TxtSQL
      * @see    _isConnected()
      * @see    disconnect()
      */
-    private $_PASS = null;
+    private $dbPassword = null;
 
     /**
      * Holds the number of queries sent to txtSQL
@@ -51,7 +59,7 @@ class TxtSQL
      * @var int
      * @see    query_count()
      */
-    private $_QUERYCOUNT = 0;
+    private $queryCount = 0;
 
     /**
      * Holds the name of the currently selected database
@@ -59,7 +67,7 @@ class TxtSQL
      * @var string
      * @see    selectDb()
      */
-    protected $_SELECTEDDB = null;
+    protected $dbName = null;
 
     /**
      * If set to true, prints all errors and warnings
@@ -67,15 +75,15 @@ class TxtSQL
      * @var bool
      * @see    strict()
      */
-    public $_STRICT = true;
+    public $isStrict = true;
 
+    protected $data;
     /**
-     * Holds the name of the currently logged in user
-     *
-     * @var string
-     * @see    _isConnected()
+     * @var $queryer TxtSQLCore
      */
-    private $_USER = null;
+    protected $queryer;
+    protected $errorsPlain;
+    public $errors;
 
     /**
      * The constructor of the txtSQL class
@@ -91,7 +99,7 @@ class TxtSQL
             );
         }
 
-        $this->_LIBPATH = $path;
+        $this->dbPath = $path;
 
         return true;
     }
@@ -107,24 +115,24 @@ class TxtSQL
     public function connect($user, $pass)
     {
         /* Check to see if our data exists */
-        if (!is_dir($this->_LIBPATH)) {
+        if (!is_dir($this->dbPath)) {
             $this->_error(E_USER_ERROR, 'Invalid data directory specified');
         }
 
         /* Instantiate parser and core class */
-        $this->_query = new TxtSQLCore($this->_LIBPATH);
+        $this->queryer = new TxtSQLCore($this->dbPath);
 
         /* Read in the user/pass information */
-        if (($DATA = $this->_readFile("$this->_LIBPATH/txtsql/txtsql.MYI"))
+        if (($_data = $this->_readFile("$this->dbPath/txtsql/txtsql.MYI"))
             === false) {
             return $this->_error(E_USER_WARNING, 'Database file is corrupted!');
         }
 
-        $this->_data = $DATA;
+        $this->data = $_data;
 
         /* Check to see if the username exists, and for a matching password */
-        if (!isset($DATA[strtolower($user)])
-            || ($DATA[strtolower($user)] != md5($pass))) {
+        if (!isset($_data[strtolower($user)])
+            || ($_data[strtolower($user)] != md5($pass))) {
             return $this->_error(
                 E_USER_NOTICE,
                 'Access denied for user \''.$user.'\' (using password: '
@@ -133,8 +141,8 @@ class TxtSQL
         }
 
         /* Save the usernames and passwords */
-        $this->_USER = $user;
-        $this->_PASS = $pass;
+        $this->dbUser = $user;
+        $this->dbPassword = $pass;
 
         return true;
     }
@@ -155,7 +163,7 @@ class TxtSQL
         }
 
         /* Unset user, pass variables; Then remove the core and parser objects */
-        unset($this->_USER, $this->_PASS, $this->_query);
+        unset($this->dbUser, $this->dbPassword, $this->queryer);
 
         return true;
     }
@@ -174,9 +182,9 @@ class TxtSQL
     public function select(array $arguments)
     {
         $this->_validate($arguments);
-        $this->_QUERYCOUNT++;
+        $this->queryCount++;
 
-        return $this->_query->select($arguments);
+        return $this->queryer->select($arguments);
     }
 
     /**
@@ -190,9 +198,9 @@ class TxtSQL
     public function insert(array $arguments)
     {
         $this->_validate($arguments);
-        $this->_QUERYCOUNT++;
+        $this->queryCount++;
 
-        return $this->_query->insert($arguments);
+        return $this->queryer->insert($arguments);
     }
 
     /**
@@ -207,9 +215,9 @@ class TxtSQL
     public function update(array $arguments)
     {
         $this->_validate($arguments);
-        $this->_QUERYCOUNT++;
+        $this->queryCount++;
 
-        return $this->_query->update($arguments);
+        return $this->queryer->update($arguments);
     }
 
     /**
@@ -223,9 +231,9 @@ class TxtSQL
     public function delete(array $arguments)
     {
         $this->_validate($arguments);
-        $this->_QUERYCOUNT++;
+        $this->queryCount++;
 
-        return $this->_query->delete($arguments);
+        return $this->queryer->delete($arguments);
     }
 
     /**
@@ -236,9 +244,9 @@ class TxtSQL
     public function showdbs()
     {
         $this->_validate([]);
-        $this->_QUERYCOUNT++;
+        $this->queryCount++;
 
-        return $this->_query->showdatabases();
+        return $this->queryer->showdatabases();
     }
 
     /**
@@ -252,9 +260,9 @@ class TxtSQL
     public function createdb(array $arguments)
     {
         $this->_validate($arguments);
-        $this->_QUERYCOUNT++;
+        $this->queryCount++;
 
-        return $this->_query->createdatabase($arguments);
+        return $this->queryer->createdatabase($arguments);
     }
 
     /**
@@ -268,9 +276,9 @@ class TxtSQL
     public function dropdb(array $arguments)
     {
         $this->_validate($arguments);
-        $this->_QUERYCOUNT++;
+        $this->queryCount++;
 
-        return $this->_query->dropdatabase($arguments);
+        return $this->queryer->dropdatabase($arguments);
     }
 
     /**
@@ -284,9 +292,9 @@ class TxtSQL
     public function renamedb(array $arguments)
     {
         $this->_validate($arguments);
-        $this->_QUERYCOUNT++;
+        $this->queryCount++;
 
-        return $this->_query->renamedatabase($arguments);
+        return $this->queryer->renamedatabase($arguments);
     }
 
     /**
@@ -300,9 +308,9 @@ class TxtSQL
     public function showtables(array $arguments)
     {
         $this->_validate($arguments);
-        $this->_QUERYCOUNT++;
+        $this->queryCount++;
 
-        return $this->_query->showtables($arguments);
+        return $this->queryer->showtables($arguments);
     }
 
     /**
@@ -316,9 +324,9 @@ class TxtSQL
     public function createtable(array $arguments)
     {
         $this->_validate($arguments);
-        $this->_QUERYCOUNT++;
+        $this->queryCount++;
 
-        return $this->_query->createtable($arguments);
+        return $this->queryer->createtable($arguments);
     }
 
     /**
@@ -332,9 +340,9 @@ class TxtSQL
     public function droptable(array $arguments)
     {
         $this->_validate($arguments);
-        $this->_QUERYCOUNT++;
+        $this->queryCount++;
 
-        return $this->_query->droptable($arguments);
+        return $this->queryer->droptable($arguments);
     }
 
     /**
@@ -349,9 +357,9 @@ class TxtSQL
     public function altertable(array $arguments)
     {
         $this->_validate($arguments);
-        $this->_QUERYCOUNT++;
+        $this->queryCount++;
 
-        return $this->_query->altertable($arguments);
+        return $this->queryer->altertable($arguments);
     }
 
     /**
@@ -365,9 +373,9 @@ class TxtSQL
     public function describe(array $arguments)
     {
         $this->_validate($arguments);
-        $this->_QUERYCOUNT++;
+        $this->queryCount++;
 
-        return $this->_query->describe($arguments);
+        return $this->queryer->describe($arguments);
     }
 
     /**
@@ -532,28 +540,28 @@ class TxtSQL
             /* ----- Database Related ----- */
             case 'show databases' :
                 {
-                    $results = $this->_query->showdatabases();
+                    $results = $this->queryer->showdatabases();
 
                     break;
                 }
 
             case 'create database' :
                 {
-                    $results = $this->_query->createdatabase($arguments);
+                    $results = $this->queryer->createdatabase($arguments);
 
                     break;
                 }
 
             case 'drop database' :
                 {
-                    $results = $this->_query->dropdatabase($arguments);
+                    $results = $this->queryer->dropdatabase($arguments);
 
                     break;
                 }
 
             case 'rename database' :
                 {
-                    $results = $this->_query->renamedatabase($arguments);
+                    $results = $this->queryer->renamedatabase($arguments);
 
                     break;
                 }
@@ -561,35 +569,35 @@ class TxtSQL
             /* ----- Table Related ----- */
             case 'show tables' :
                 {
-                    $results = $this->_query->showtables($arguments);
+                    $results = $this->queryer->showtables($arguments);
 
                     break;
                 }
 
             case 'create table' :
                 {
-                    $results = $this->_query->createtable($arguments);
+                    $results = $this->queryer->createtable($arguments);
 
                     break;
                 }
 
             case 'drop table' :
                 {
-                    $results = $this->_query->droptable($arguments);
+                    $results = $this->queryer->droptable($arguments);
 
                     break;
                 }
 
             case 'alter table' :
                 {
-                    $results = $this->_query->altertable($arguments);
+                    $results = $this->queryer->altertable($arguments);
 
                     break;
                 }
 
             case 'describe' :
                 {
-                    $results = $this->_query->describe($arguments);
+                    $results = $this->queryer->describe($arguments);
 
                     break;
                 }
@@ -597,28 +605,28 @@ class TxtSQL
             /* ----- Main functions ----- */
             case 'select' :
                 {
-                    $results = $this->_query->select($arguments);
+                    $results = $this->queryer->select($arguments);
 
                     break;
                 }
 
             case 'insert' :
                 {
-                    $results = $this->_query->insert($arguments);
+                    $results = $this->queryer->insert($arguments);
 
                     break;
                 }
 
             case 'update' :
                 {
-                    $results = $this->_query->update($arguments);
+                    $results = $this->queryer->update($arguments);
 
                     break;
                 }
 
             case 'delete' :
                 {
-                    $results = $this->_query->delete($arguments);
+                    $results = $this->queryer->delete($arguments);
 
                     break;
                 }
@@ -635,7 +643,7 @@ class TxtSQL
         /* Return whatever results we got back */
         if (isset($results)) {
             if ($results !== false) {
-                $this->_QUERYCOUNT++;
+                $this->queryCount++;
 
                 return $results;
             }
@@ -655,10 +663,10 @@ class TxtSQL
      */
     public function strict($strict = false)
     {
-        $this->_STRICT = $strict = ( boolean )$strict;
+        $this->isStrict = $strict = ( boolean )$strict;
 
         if ($this->_isConnected()) {
-            $this->_query->strict($strict);
+            $this->queryer->strict($strict);
         }
 
         return true;
@@ -731,7 +739,7 @@ class TxtSQL
             return $this->_error(E_USER_NOTICE, 'Forgot to input username');
         }
 
-        if (($DATA = $this->_readFile("$this->_LIBPATH/txtsql/txtsql.MYI"))
+        if (($DATA = $this->_readFile("$this->dbPath/txtsql/txtsql.MYI"))
             === false) {
             return $this->_error(E_USER_WARNING, 'Database file is corrupted!');
         }
@@ -754,7 +762,7 @@ class TxtSQL
             case 'drop':
                 {
                     switch (true) {
-                        case (strtolower($user) == strtolower($this->_USER)) :
+                        case (strtolower($user) == strtolower($this->dbUser)) :
                             {
                                 return $this->_error(
                                     E_USER_NOTICE,
@@ -822,7 +830,7 @@ class TxtSQL
 
         /* Save the new information */
         if ($this->_writeFile(
-                "$this->_LIBPATH/txtsql/txtsql.MYI",
+                "$this->dbPath/txtsql/txtsql.MYI",
                 'w',
                 serialize($DATA)
             ) === false) {
@@ -830,7 +838,7 @@ class TxtSQL
         }
 
         /* Save it in the cache */
-        $this->_CACHE["$this->_LIBPATH/txtsql/txtsql.MYI"] = $DATA;
+        $this->cache["$this->dbPath/txtsql/txtsql.MYI"] = $DATA;
 
         return true;
     }
@@ -848,7 +856,7 @@ class TxtSQL
         }
 
         /* Read in user database */
-        if (($DATA = $this->_readFile("$this->_LIBPATH/txtsql/txtsql.MYI"))
+        if (($DATA = $this->_readFile("$this->dbPath/txtsql/txtsql.MYI"))
             === false) {
             return $this->_error(E_USER_WARNING, 'Database file is corrupted!');
         }
@@ -872,7 +880,7 @@ class TxtSQL
             );
         }
 
-        return is_file("$this->_LIBPATH/$db/txtsql.lock") ? true : false;
+        return is_file("$this->dbPath/$db/txtsql.lock") ? true : false;
     }
 
     /**
@@ -899,7 +907,7 @@ class TxtSQL
             );
         }
 
-        if ($this->_writeFile("$this->_LIBPATH/$db/txtsql.lock", 'a')
+        if ($this->_writeFile("$this->dbPath/$db/txtsql.lock", 'a')
             === false) {
             return false;
         }
@@ -932,7 +940,7 @@ class TxtSQL
         }
 
 
-        if (!@unlink("$this->_LIBPATH/$db/txtsql.lock")) {
+        if (!@unlink("$this->dbPath/$db/txtsql.lock")) {
             $this->_error(
                 E_USER_ERROR,
                 'Error removing lock for database \''.$db.'\''
@@ -968,7 +976,7 @@ class TxtSQL
         }
 
         /* Select the database */
-        $this->_SELECTEDDB = $this->_query->_SELECTEDDB = $db;
+        $this->dbName = $this->queryer->dbName = $db;
 
         return true;
     }
@@ -1054,12 +1062,12 @@ class TxtSQL
         }
 
         /* No database or no table specified means that we stop here */
-        if (empty($this->_SELECTEDDB) || empty($table)) {
+        if (empty($this->dbName) || empty($table)) {
             return $this->_error(E_USER_NOTICE, 'No database selected');
         }
 
         /* Does table exist? */
-        $filename = "$this->_LIBPATH/$this->_SELECTEDDB/$table";
+        $filename = "$this->dbPath/$this->dbName/$table";
 
         if (!is_file($filename.'.MYD') || !is_file($filename.'.FRM')) {
             return $this->_error(
@@ -1118,13 +1126,13 @@ class TxtSQL
         }
 
         /* Check for a selected database */
-        if (empty($this->_SELECTEDDB)) {
+        if (empty($this->dbName)) {
             return $this->_error(E_USER_NOTICE, 'No database selected');
         }
 
         /* Read in the column definitions */
         if (($cols = $this->_readFile(
-                "$this->_LIBPATH/$this->_SELECTEDDB/$table.FRM"
+                "$this->dbPath/$this->dbName/$table.FRM"
             )) === false) {
             return $this->_error(
                 E_USER_NOTICE,
@@ -1173,7 +1181,7 @@ class TxtSQL
      */
     public function queryCount()
     {
-        return $this->_QUERYCOUNT;
+        return $this->queryCount;
     }
 
     /**
@@ -1189,13 +1197,13 @@ class TxtSQL
      */
     public function lastError()
     {
-        if (!empty($this->_query->_ERRORS)) {
+        if (!empty($this->queryer->errors)) {
             echo '<pre>';
-            echo $this->_query->_ERRORSPLAIN[count($this->_query->_ERRORS) - 1];
+            echo $this->queryer->errorsPlain[count($this->queryer->errors) - 1];
             echo '</pre>';
-        } elseif (!empty($this->_ERRORS)) {
+        } elseif (!empty($this->errors)) {
             echo '<pre>';
-            echo $this->_ERRORSPLAIN[count($this->_ERRORS) - 1];
+            echo $this->errorsPlain[count($this->errors) - 1];
             echo '</pre>';
         }
     }
@@ -1215,11 +1223,11 @@ class TxtSQL
      */
     public function getLastError()
     {
-        if (!empty($this->_query->_ERRORS)) {
-            return $this->_query->_ERRORSPLAIN[count($this->_query->_ERRORS)
+        if (!empty($this->queryer->errors)) {
+            return $this->queryer->errorsPlain[count($this->queryer->errors)
             - 1];
-        } elseif (!empty($this->_ERRORS)) {
-            return $this->_ERRORSPLAIN[count($this->_ERRORS) - 1];
+        } elseif (!empty($this->errors)) {
+            return $this->errorsPlain[count($this->errors) - 1];
         }
 
         return false;
@@ -1231,20 +1239,20 @@ class TxtSQL
     public function errorDump()
     {
         /* No errors? */
-        if (empty($this->_ERRORS) && empty($this->_query->_ERRORS)) {
+        if (empty($this->errors) && empty($this->queryer->errors)) {
             echo 'No errors occurred during script execution';
 
             return true;
         }
 
         /* Errors during this part of script */
-        if (!empty($this->_ERRORS)) {
-            foreach ($this->_ERRORS as $key => $value) {
+        if (!empty($this->errors)) {
+            foreach ($this->errors as $key => $value) {
                 echo 'ERROR #['.$key.'] '.$value;
             }
         } /* Errors during query execution portion */
-        elseif (!empty($this->_query->_ERRORS)) {
-            foreach ($this->_query->_ERRORS as $key => $value) {
+        elseif (!empty($this->queryer->errors)) {
+            foreach ($this->queryer->errors as $key => $value) {
                 echo 'ERROR #['.$key.'] '.$value;
             }
         }
@@ -1258,7 +1266,7 @@ class TxtSQL
      */
     public function emptyCache()
     {
-        $this->_CACHE = [];
+        $this->cache = [];
 
         return true;
     }
@@ -1292,36 +1300,30 @@ class TxtSQL
         /* Determine what kind of error this is, so we can display it. */
         switch ($errno) {
             case E_USER_ERROR :
-                {
-                    $type = 'Fatal Error';
+                $type = 'Fatal Error';
 
-                    break;
-                }
+                break;
 
             case E_USER_NOTICE :
-                {
-                    $type = "Warning";
+                $type = 'Warning';
 
-                    break;
-                }
+                break;
 
             default :
-                {
-                    $type = "Error";
+                $type = 'Error';
 
-                    break;
-                }
+                break;
         }
 
         $type = isset($errtype) ? $errtype : $type;
 
         /* Print the message to the screen, if strict is on */
         $errormsg
-            = "<BR />\n<B>txtSQL $type:</B> $errstr in <B>$errfile</B> on line <B>$errline</B>\n<BR /></DIV>";
-        $this->_ERRORSPLAIN[] = $errstr;
-        $this->_ERRORS[] = $errormsg;
+            = "<br />\n<b>txtSQL $type:</b> $errstr in <b>$errfile</b> on line <b>$errline</b>\n<br /></div>";
+        $this->errorsPlain[] = $errstr;
+        $this->errors[] = $errormsg;
 
-        if (!isset($this->_STRICT) || ($this->_STRICT === true)) {
+        if (!isset($this->isStrict) || ($this->isStrict === true)) {
             echo $errormsg;
         }
 
@@ -1377,8 +1379,8 @@ class TxtSQL
         if (is_file($filename)) {
             /* Check for a cache if we need to use the cache */
             if ($useCache === true) {
-                if (isset($this->_CACHE[$filename])) {
-                    return $this->_CACHE[$filename];
+                if (isset($this->cache[$filename])) {
+                    return $this->cache[$filename];
                 }
             }
 
@@ -1393,7 +1395,7 @@ class TxtSQL
 
                 /* Save the new file in the cache */
                 if ($useCache === true) {
-                    $this->_CACHE[$filename] = $contents;
+                    $this->cache[$filename] = $contents;
                 }
 
                 return $contents;
@@ -1403,7 +1405,7 @@ class TxtSQL
         return false;
     }
 
-    /*
+    /**
      * If mkdir() is atomic,
      * then we do not need to worry about race conditions while trying to make the lockDir,
      * unless of course were writing to NFS, for which this function will be useless.
@@ -1530,12 +1532,12 @@ class TxtSQL
     private function _isConnected()
     {
         /* If either one of the user or pass vars are empty, then return false; */
-        if (empty($this->_USER)) {
+        if (empty($this->dbUser)) {
             return false;
         }
 
         /* Are we authenticated? */
-        if ($this->_data[strtolower($this->_USER)] != md5($this->_PASS)) {
+        if ($this->data[strtolower($this->dbUser)] != md5($this->dbPassword)) {
             return false;
         }
 
@@ -1551,7 +1553,7 @@ class TxtSQL
      */
     protected function _dbExist($db)
     {
-        return is_dir("$this->_LIBPATH/$db") ? true : false;
+        return is_dir("$this->dbPath/$db") ? true : false;
     }
 
     /**
@@ -1572,7 +1574,7 @@ class TxtSQL
         }
 
         /* Check to see if the table exists */
-        $filename = "$this->_LIBPATH/$this->_SELECTEDDB/$table";
+        $filename = "$this->dbPath/$this->dbName/$table";
 
         if (is_file($filename.'.MYD') && is_file($filename.'.FRM')) {
             return true;
@@ -1584,13 +1586,13 @@ class TxtSQL
     /**
      * Alias of _generateWhereClause()
      *
-     * @param mixed $where The array containing the where clause
-     * @param mixed $cols  The array containing the column definitions
+     * @param array $where The array containing the where clause
+     * @param array $cols  The array containing the column definitions
      *
      * @return string $query The string which contains the php-equivelent to
      *                the where clause
      */
-    protected function _buildIf($where, $cols)
+    protected function _buildIf(array $where, array $cols)
     {
         return $this->_generateWhereClause($where, $cols);
     }
@@ -1599,11 +1601,11 @@ class TxtSQL
      * Builds php code for a group of where clauses
      *
      * @param array $where The where clause (array version)
-     * @param mixed $cols  The column definitions
+     * @param array $cols  The column definitions
      *
      * @return string $query The PHP-equivalent of the WHERE clause
      */
-    private function _generateWhereClause(array $where, $cols)
+    private function _generateWhereClause(array $where, array $cols)
     {
         /* Make sure that $where is an array */
         if (!is_array($where) || empty($where)) {
@@ -1711,14 +1713,10 @@ class TxtSQL
 
                     /* LIKE Operator */
                 case '!~' :
-                    {
-                        $op = ($op == '!~') ? 'notlike' : $op;
-                    }
+                    $op = ($op == '!~') ? 'notlike' : $op;
 
                 case '=~' :
-                    {
-                        $op = ($op == '=~') ? 'like' : $op;
-                    }
+                    $op = ($op == '=~') ? 'like' : $op;
 
                 /* Inequality Operator */
                 case '<=' :
@@ -1726,9 +1724,7 @@ class TxtSQL
 
                     /* Equality Operator */
                 case '='  :
-                    {
-                        $op = ($op == '=') ? '==' : $op;
-                    }
+                    $op = ($op == '=') ? '==' : $op;
 
                 case '<>' :
 
@@ -1742,31 +1738,23 @@ class TxtSQL
 
                     /* Regex Operator */
                 case 'regexp' :
-                    {
-                        $op = ($op == 'regexp') ? '%=' : $op;
-                    }
+                    $op = ($op == 'regexp') ? '%=' : $op;
 
                 case 'notregexp' :
-                    {
-                        $op = ($op == 'notregexp') ? '!%' : $op;
-                    }
+                    $op = ($op == 'notregexp') ? '!%' : $op;
 
                 /* LIKE Operator */
                 case 'notlike' :
                 case 'like' :
-                    {
-                        break;
-                    }
+                    break;
 
                 /* Invalid Operator */
                 default:
-                    {
-                        /* There is an error in your where clause */
-                        return $this->_error(
-                            E_USER_NOTICE,
-                            'You have an error in your where clause, (operators allowed: =, !=, <>, =~, !~, <, >, <=, >=)'
-                        );
-                    }
+                    /* There is an error in your where clause */
+                    return $this->_error(
+                        E_USER_NOTICE,
+                        'You have an error in your where clause, (operators allowed: =, !=, <>, =~, !~, <, >, <=, >=)'
+                    );
             }
 
             /* The 'instring' operator */
@@ -1939,7 +1927,7 @@ class TxtSQL
                     || ($word == ',')) {
                     /* Determine type for the next argument */
                     $nextType = $parser->getNextWord(true);
-                    $parser->c -= strlen($nextType) + 1;
+                    $parser->characterIndex -= strlen($nextType) + 1;
 
                     switch (true) {
                         /* Function or column */
@@ -1947,32 +1935,26 @@ class TxtSQL
                             && !is_numeric(
                                 $nextType
                             )) :
-                            {
-                                $nextType = 'col';
+                            $nextType = 'col';
 
-                                if (substr_count($nextType, '(') > 0) {
-                                    if (substr_count($nextType, '(')
-                                        == substr_count($nextType, ')')) {
-                                        $nextType = 'func';
-                                    }
+                            if (substr_count($nextType, '(') > 0) {
+                                if (substr_count($nextType, '(')
+                                    == substr_count($nextType, ')')) {
+                                    $nextType = 'func';
                                 }
-
-                                break;
                             }
+
+                            break;
 
                         /* Integer */
                         case (is_numeric($nextType)) :
-                            {
-                                $nextType = 'int';
+                            $nextType = 'int';
 
-                                break;
-                            }
+                            break;
 
                         /* Default (String) */
                         default:
-                            {
-                                $nextType = 'str';
-                            }
+                            $nextType = 'str';
                     }
 
                     /* Concatenation operator, not addition operator, in some cases */

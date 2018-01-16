@@ -32,21 +32,21 @@ class TxtSQLCore extends TxtSQL
             }
         }
 
-        if (empty($this->_SELECTEDDB)) {
+        if (empty($this->dbName)) {
             return $this->_error(E_USER_NOTICE, 'No database selected');
         } elseif (empty($arg['table'])) {
             return $this->_error(E_USER_NOTICE, 'No table specified');
         }
 
         $arg['select'] = empty($arg['select']) ? ['*'] : $arg['select'];
-        $filename = "$this->_LIBPATH/$this->_SELECTEDDB/{$arg['table']}";
+        $filename = "$this->dbPath/$this->dbName/{$arg['table']}";
 
         if (($rows = $this->_readFile($filename.'.MYD')) === false
             || ($cols
                 = $this->_readFile($filename.'.FRM')) === false) {
             return $this->_error(
                 E_USER_NOTICE,
-                'Table \''.$arg['table'].'\' doesn\'t exist'
+                sprintf('Table \'%s\' doesn\'t exist', $arg['table'])
             );
         }
 
@@ -136,8 +136,7 @@ class TxtSQLCore extends TxtSQL
                             if (empty($cols['primary'])) {
                                 return $this->_error(
                                     E_USER_NOTICE,
-                                    'No primary key assigned to table \''
-                                    .$arg['table'].'\''
+                                    sprintf('No primary key assigned to table \'%s\'', $arg['table'])
                                 );
                             }
 
@@ -148,7 +147,7 @@ class TxtSQLCore extends TxtSQL
                             === false) {
                             return $this->_error(
                                 E_USER_NOTICE,
-                                'Column \''.$value.'\' doesn\'t exist'
+                                sprintf('Column \'%s\' doesn\'t exist', $value)
                             );
                         }
 
@@ -263,8 +262,7 @@ class TxtSQLCore extends TxtSQL
                 if (!array_key_exists($key, $selected[0])) {
                     return $this->_error(
                         E_USER_NOTICE,
-                        'Cannot sort results by column \''.$key
-                        .'\'; Column not in result set'
+                        sprintf('Cannot sort results by column \'%s\'; Column not in result set', $key)
                     );
                 } elseif ((strtolower($value) != 'asc')
                     && (strtolower($value) != 'desc')) {
@@ -300,7 +298,7 @@ class TxtSQLCore extends TxtSQL
             if ($this->_getColPos($arg['distinct'], $cols) === false) {
                 return $this->_error(
                     E_USER_NOTICE,
-                    'Column \''.$arg['distinct'].'\' doesn\'t exist'
+                    sprintf('Column \'%s\' doesn\'t exist', $arg['distinct'])
                 );
             }
 
@@ -308,8 +306,8 @@ class TxtSQLCore extends TxtSQL
         }
 
         /* Save changes in the cache */
-        $this->_CACHE[$filename.'.MYD'] = $rows;
-        $this->_CACHE[$filename.'.FRM'] = $cols;
+        $this->cache[$filename.'.MYD'] = $rows;
+        $this->cache[$filename.'.FRM'] = $cols;
 
         /* Return the selected records */
 
@@ -335,7 +333,7 @@ class TxtSQLCore extends TxtSQL
 
         /* If we have no database selected, or no table to work with
 		 * then stop script execution */
-        if (empty($this->_SELECTEDDB)) {
+        if (empty($this->dbName)) {
             return $this->_error(E_USER_NOTICE, 'No database selected');
         } elseif (empty($arg['table'])) {
             return $this->_error(E_USER_NOTICE, 'No table specified');
@@ -347,23 +345,23 @@ class TxtSQLCore extends TxtSQL
         }
 
         /* Make sure the database isn't locked */
-        if ($this->isLocked($this->_SELECTEDDB)) {
+        if ($this->isLocked($this->dbName)) {
             return $this->_error(
                 E_USER_NOTICE,
-                'Database \''.$this->_SELECTEDDB.'\' is locked'
+                sprintf('Database \'%s\' is locked', $this->dbName)
             );
         }
 
         /* Check to see if the tables exist or not, if not then we cannot
 		 * continue, so we issue an error message */
-        $filename = "$this->_LIBPATH/$this->_SELECTEDDB/{$arg['table']}";
+        $filename = "$this->dbPath/$this->dbName/{$arg['table']}";
 
         if (($rows = $this->_readFile($filename.'.MYD')) === false
             || ($cols
                 = $this->_readFile($filename.'.FRM')) === false) {
             return $this->_error(
                 E_USER_NOTICE,
-                'Table \''.$arg['table'].'\' doesn\'t exist'
+                sprintf('Table \'%s\' doesn\'t exist', $arg['table'])
             );
         }
 
@@ -376,23 +374,15 @@ class TxtSQLCore extends TxtSQL
 
             switch (true) {
                 case ($value['auto_increment'] == 1) :
-                    {
-                        $model[] = ($cols[$key]['autocount']++) + 1;
-
-                        break;
-                    }
+                    $model[] = ($cols[$key]['autocount']++) + 1;
+                    break;
 
                 case ($value['type'] == 'date') :
-                    {
-                        $arg['values'][$key] = '';
-
-                        break;
-                    }
+                    $arg['values'][$key] = '';
+                    break;
 
                 default:
-                    {
-                        $model[] = $value['default'];
-                    }
+                    $model[] = $value['default'];
             }
         }
 
@@ -411,7 +401,7 @@ class TxtSQLCore extends TxtSQL
                 if (empty($cols['primary'])) {
                     return $this->_error(
                         E_USER_NOTICE,
-                        'No primary key assigned to table \''.$arg['table'].'\''
+                        sprintf('No primary key assigned to table \'%s\'', $arg['table'])
                     );
                 }
                 $key = $cols['primary'];
@@ -420,7 +410,7 @@ class TxtSQLCore extends TxtSQL
             if (($colPos = $this->_getColPos($key, $cols)) === false) {
                 return $this->_error(
                     E_USER_NOTICE,
-                    'Column \''.$key.'\' doesn\'t exist'
+                    sprintf('Column \'%s\' doesn\'t exist', $key)
                 );
             }
 
@@ -432,13 +422,13 @@ class TxtSQLCore extends TxtSQL
                 && ($value[1] > $cols[$key]['max'])) {
                 return $this->_error(
                     E_USER_NOTICE,
-                    'Cannot exceed maximum value for column \''.$key.'\''
+                    sprintf('Cannot exceed maximum value for column \'%s\'', $key)
                 );
             } elseif (($cols[$key]['max'] > 0)
                 && (strlen($value[1]) > $cols[$key]['max'])) {
                 return $this->_error(
                     E_USER_NOTICE,
-                    'Cannot exceed maximum value for column \''.$key.'\''
+                    sprintf('Cannot exceed maximum value for column \'%s\'', $key)
                 );
             }
 
@@ -459,66 +449,51 @@ class TxtSQLCore extends TxtSQL
 			 * with the right data type */
             switch (strtolower($cols[$key]['type'])) {
                 case 'enum' :
-                    {
-                        if (empty($cols[$key]['enum_val'])) {
-                            $cols[$key]['enum_val'] = serialize(['']);
+                    if (empty($cols[$key]['enum_val'])) {
+                        $cols[$key]['enum_val'] = serialize(['']);
+                    }
+
+                    $enum_val = unserialize($cols[$key]['enum_val']);
+
+                    foreach ($enum_val as $key => $value1) {
+                        if (strtolower($value[1]) == strtolower($value1)) {
+                            break;
                         }
 
-                        $enum_val = unserialize($cols[$key]['enum_val']);
+                        if ($key == (count($enum_val) - 1)) {
+                            $value[1] = $enum_val[$key];
 
-                        foreach ($enum_val as $key => $value1) {
-                            if (strtolower($value[1]) == strtolower($value1)) {
-                                break;
-                            }
-
-                            if ($key == (count($enum_val) - 1)) {
-                                $value[1] = $enum_val[$key];
-
-                                break;
-                            }
+                            break;
                         }
                     }
 
                 case 'string' :
                 case 'text' :
-                    {
-                        $model[$value[0]] = ( string )$value[1];
-
-                        break;
-                    }
-
+                    $model[$value[0]] = ( string )$value[1];
+                    break;
                 case 'int' :
-                    {
-                        $model[$value[0]] = ( integer )$value[1];
-
-                        break;
-                    }
+                    $model[$value[0]] = ( integer )$value[1];
+                    break;
 
                 case 'bool' :
-                    {
-                        $model[$value[0]] = ( boolean )$value[1];
-
-                        break;
-                    }
+                    $model[$value[0]] = ( boolean )$value[1];
+                    break;
 
                 case 'date' :
-                    {
-                        $model[$value[0]] = time();
-
-                        break;
-                    }
+                    $model[$value[0]] = time();
+                    break;
             }
         }
 
         $rows[] = $model;
 
         /* Save the new information in their proper files */
-        if ($this->_writeFile($filename.".MYD", 'w', serialize($rows))
+        if ($this->_writeFile($filename.'.MYD', 'w', serialize($rows))
             === true) {
-            if ($this->_writeFile($filename.".FRM", 'w', serialize($cols))
+            if ($this->_writeFile($filename.'.FRM', 'w', serialize($cols))
                 === true) {
-                $this->_CACHE[$filename.'.MYD'] = $rows;
-                $this->_CACHE[$filename.'.FRM'] = $cols;
+                $this->cache[$filename.'.MYD'] = $rows;
+                $this->cache[$filename.'.FRM'] = $cols;
 
                 return true;
             }
@@ -550,30 +525,30 @@ class TxtSQLCore extends TxtSQL
 
         /* If no database is selected, or we have no table to
 		 * work with, then stop execution of script */
-        if (empty($this->_SELECTEDDB)) {
+        if (empty($this->dbName)) {
             return $this->_error(E_USER_NOTICE, 'No database selected');
         } elseif (empty($arg['table'])) {
             return $this->_error(E_USER_NOTICE, 'No table specified');
         }
 
         /* Make sure the database isn't locked */
-        if ($this->isLocked($this->_SELECTEDDB)) {
+        if ($this->isLocked($this->dbName)) {
             return $this->_error(
                 E_USER_NOTICE,
-                'Database \''.$this->_SELECTEDDB.'\' is locked'
+                sprintf('Database \'%s\' is locked', $this->dbName)
             );
         }
 
         /* Check to see if the tables exist or not, if not then we cannot
 		 * continue, so we issue an error message */
-        $filename = "$this->_LIBPATH/$this->_SELECTEDDB/{$arg['table']}";
+        $filename = "$this->dbPath/$this->dbName/{$arg['table']}";
 
         if (($rows = $this->_readFile($filename.'.MYD')) === false
             || ($cols
                 = $this->_readFile($filename.'.FRM')) === false) {
             return $this->_error(
                 E_USER_NOTICE,
-                'Table \''.$arg['table'].'\' doesn\'t exist'
+                sprintf('Table \'%s\' doesn\'t exist', $arg['table'])
             );
         }
 
@@ -625,11 +600,11 @@ class TxtSQLCore extends TxtSQL
         @eval($function);
 
         /* Save the new record information */
-        if ($this->_writeFile($filename.".MYD", 'w', serialize($rows))
+        if ($this->_writeFile($filename.'.MYD', 'w', serialize($rows))
             === true) {
             /* Save files to cache */
-            $this->_CACHE[$filename.'.MYD'] = $rows;
-            $this->_CACHE[$filename.'.FRM'] = $cols;
+            $this->cache[$filename.'.MYD'] = $rows;
+            $this->cache[$filename.'.FRM'] = $cols;
 
             /* Return the number of deleted rows */
 
@@ -659,30 +634,30 @@ class TxtSQLCore extends TxtSQL
 
         /* If there is no database selected, or we have no table
 		 * selected, then stop execution of script */
-        if (empty($this->_SELECTEDDB)) {
+        if (empty($this->dbName)) {
             return $this->_error(E_USER_NOTICE, 'No database selected');
         } elseif (empty($arg['table'])) {
             return $this->_error(E_USER_NOTICE, 'No table specified');
         }
 
         /* Make sure the database isn't locked */
-        if ($this->isLocked($this->_SELECTEDDB)) {
+        if ($this->isLocked($this->dbName)) {
             return $this->_error(
                 E_USER_NOTICE,
-                'Database \''.$this->_SELECTEDDB.'\' is locked'
+                sprintf('Database \'%s\' is locked', $this->dbName)
             );
         }
 
         /* Check to see if the tables exist or not, if not then we cannot
 		 * continue, so we issue an error message */
-        $filename = "$this->_LIBPATH/$this->_SELECTEDDB/{$arg['table']}";
+        $filename = "$this->dbPath/$this->dbName/{$arg['table']}";
 
         if (($rows = $this->_readFile($filename.'.MYD')) === false
             || ($cols
                 = $this->_readFile($filename.'.FRM')) === false) {
             return $this->_error(
                 E_USER_NOTICE,
-                'Table \''.$arg['table'].'\' doesn\'t exist'
+                sprintf('Table \'%s\' doesn\'t exist', $arg['table'])
             );
         }
 
@@ -717,7 +692,7 @@ class TxtSQLCore extends TxtSQL
                 if (empty($cols['primary'])) {
                     return $this->_error(
                         E_USER_NOTICE,
-                        'No primary key assigned to table \''.$arg['table'].'\''
+                        sprintf('No primary key assigned to table \'%s\'', $arg['table'])
                     );
                 }
 
@@ -728,7 +703,7 @@ class TxtSQLCore extends TxtSQL
             if (($colPos = $this->_getColPos($key, $cols)) === false) {
                 return $this->_error(
                     E_USER_NOTICE,
-                    'Column \''.$key.'\' doesn\'t exist'
+                    sprintf('Column \'%s\' doesn\'t exist', $key)
                 );
             }
 
@@ -736,7 +711,7 @@ class TxtSQLCore extends TxtSQL
             if ($cols[$key]['permanent'] == 1) {
                 $this->_error(
                     E_USER_NOTICE,
-                    'Column \''.$key.'\' is set to permanent'
+                    sprintf('Column \'%s\' is set to permanent', $key)
                 );
 
                 unset($arg['values'][$key]);
@@ -749,13 +724,13 @@ class TxtSQLCore extends TxtSQL
                 && ($value > $cols[$key]['max'])) {
                 return $this->_error(
                     E_USER_NOTICE,
-                    'Cannot exceed maximum value for column \''.$key.'\''
+                    sprintf('Cannot exceed maximum value for column \'%s\'', $key)
                 );
             } elseif (($cols[$key]['max'] > 0)
                 && (strlen($value) > $cols[$key]['max'])) {
                 return $this->_error(
                     E_USER_NOTICE,
-                    'Cannot exceed maximum value for column \''.$key.'\''
+                    sprintf('Cannot exceed maximum value for column \'%s\'', $key)
                 );
             }
 
@@ -785,53 +760,40 @@ class TxtSQLCore extends TxtSQL
         foreach ($arg['values'] as $key1 => $value1) {
             switch (strtolower($cols[$key1]['type'])) {
                 case 'enum' :
-                    {
-                        if (empty($cols[$key1]['enum_val'])) {
-                            $cols[$key1]['enum_val'] = 'a:0;{}';
+                    if (empty($cols[$key1]['enum_val'])) {
+                        $cols[$key1]['enum_val'] = 'a:0;{}';
+                    }
+
+                    $enum_val = unserialize($cols[$key1]['enum_val']);
+
+                    foreach ($enum_val as $key2 => $value2) {
+                        if (strtolower($arg['values'][$key1][1])
+                            == strtolower($value2)) {
+                            break;
                         }
 
-                        $enum_val = unserialize($cols[$key1]['enum_val']);
+                        if ($key2 == (count($enum_val) - 1)) {
+                            $arg['values'][$key1][1] = $enum_val[$key2];
 
-                        foreach ($enum_val as $key2 => $value2) {
-                            if (strtolower($arg['values'][$key1][1])
-                                == strtolower($value2)) {
-                                break;
-                            }
-
-                            if ($key2 == (count($enum_val) - 1)) {
-                                $arg['values'][$key1][1] = $enum_val[$key2];
-
-                                break;
-                            }
+                            break;
                         }
                     }
 
                 case 'text' :
                 case 'string' :
-                    {
-                        $type = "string";
-
-                        break;
-                    }
+                    $type = 'string';
+                    break;
 
                 case 'int' :
-                    {
-                        $type = "integer";
-
-                        break;
-                    }
+                    $type = 'integer';
+                    break;
 
                 case 'bool' :
-                    {
-                        $type = "boolean";
-
-                        break;
-                    }
+                    $type = 'boolean';
+                    break;
 
                 default :
-                    {
-                        $type = "string";
-                    }
+                    $type = 'string';
             }
 
             $function .= "\$rows[\$key][ $value1[0] ] = ( $type ) "
@@ -849,13 +811,13 @@ class TxtSQLCore extends TxtSQL
         @eval($function);
 
         /* Save the new row information */
-        if ($this->_writeFile($filename.".FRM", 'w', serialize($cols))
+        if ($this->_writeFile($filename.'.FRM', 'w', serialize($cols))
             === true) {
-            if ($this->_writeFile($filename.".MYD", 'w', serialize($rows))
+            if ($this->_writeFile($filename.'.MYD', 'w', serialize($rows))
                 === true) {
                 /* Save files to cache */
-                $this->_CACHE[$filename.'.MYD'] = $rows;
-                $this->_CACHE[$filename.'.FRM'] = $cols;
+                $this->cache[$filename.'.MYD'] = $rows;
+                $this->cache[$filename.'.FRM'] = $cols;
 
                 /* Return the number of rows that were updated */
 
@@ -884,29 +846,28 @@ class TxtSQLCore extends TxtSQL
         }
 
         /* Is a database selected? */
-        if (empty($this->_SELECTEDDB)) {
+        if (empty($this->dbName)) {
             return $this->_error(E_USER_NOTICE, 'No database selected');
         }
 
         /* Can we open the directory up? */
-        if (($fp = @opendir("$this->_LIBPATH/$this->_SELECTEDDB")) === false) {
+        if (($fp = @opendir("$this->dbPath/$this->dbName")) === false) {
             $this->_error(
                 E_USER_ERROR,
-                'Could not open directory, \''.$this->_LIBPATH.'/'
-                .$this->_SELECTEDDB.'\', for reading'
+                sprintf('Could not open directory, \'%s/%s\', for reading',$this->dbPath,$this->dbName)
             );
         }
 
         $table = [];
 
         while (($file = @readdir($fp)) !== false) {
-            if (($file != ".") && ($file != "..") && ($file != 'txtsql.MYI')) {
+            if (($file != '.') && ($file != '..') && ($file != 'txtsql.MYI')) {
                 /* If it's a valid txtsql table */
                 $extension = substr($file, strrpos($file, '.') + 1);
 
                 if (($extension == 'MYD' || $extension == 'FRM')
                     && is_file(
-                        "$this->_LIBPATH/$this->_SELECTEDDB/$file"
+                        "$this->dbPath/$this->dbName/$file"
                     )) {
                     $table[] = substr($file, 0, strrpos($file, '.'));
                 }
@@ -949,15 +910,15 @@ class TxtSQLCore extends TxtSQL
         }
 
         /* Do we have a selected database? */
-        if (empty($this->_SELECTEDDB)) {
+        if (empty($this->dbName)) {
             return $this->_error(E_USER_NOTICE, 'No database selected');
         }
 
         /* Make sure the database isn't locked */
-        if ($this->isLocked($this->_SELECTEDDB)) {
+        if ($this->isLocked($this->dbName)) {
             return $this->_error(
                 E_USER_NOTICE,
-                'Database \''.$this->_SELECTEDDB.'\' is locked'
+                sprintf('Database \'%s\' is locked', $this->dbName)
             );
         }
 
@@ -977,7 +938,7 @@ class TxtSQLCore extends TxtSQL
         if (empty($arg['columns']) || !is_array($arg['columns'])) {
             return $this->_error(
                 E_USER_NOTICE,
-                'Invalid columns for table \''.$arg['table'].'\''
+                sprintf('Invalid columns for table \'%s\'', $arg['table'])
             );
         }
 
@@ -1018,199 +979,168 @@ class TxtSQLCore extends TxtSQL
             foreach ($value as $key1 => $value1) {
                 switch (strtolower($key1)) {
                     case 'auto_increment' :
-                        {
-                            /* Need either a 1 or 0 */
-                            $value1 = ( integer )$value1;
+                        /* Need either a 1 or 0 */
+                        $value1 = ( integer )$value1;
 
-                            if (($value1 != 0) && ($value1 != 1)) {
-                                return $this->_error(
-                                    E_USER_NOTICE,
-                                    'Auto_increment must be a boolean 1 or 0'
-                                );
-                            }
-
-                            /* Has to be an integer type */
-                            if (isset($value['type'])
-                                && ($value['type'] != 'int')
-                                && ($value1 == 1)) {
-                                return $this->_error(
-                                    E_USER_NOTICE,
-                                    'auto_increment column must be an integer type'
-                                );
-                            }
-
-                            $model['auto_increment'] = $value1;
-
-                            break;
+                        if (($value1 != 0) && ($value1 != 1)) {
+                            return $this->_error(
+                                E_USER_NOTICE,
+                                'Auto_increment must be a boolean 1 or 0'
+                            );
                         }
+
+                        /* Has to be an integer type */
+                        if (isset($value['type'])
+                            && ($value['type'] != 'int')
+                            && ($value1 == 1)) {
+                            return $this->_error(
+                                E_USER_NOTICE,
+                                'auto_increment column must be an integer type'
+                            );
+                        }
+
+                        $model['auto_increment'] = $value1;
+
+                        break;
 
                     case 'permanent' :
-                        {
-                            /* Need either a 1 or 0 */
-                            $value1 = ( integer )$value1;
+                        /* Need either a 1 or 0 */
+                        $value1 = ( integer )$value1;
 
-                            if ($value1 < 0 || $value1 > 1) {
-                                return $this->_error(
-                                    E_USER_NOTICE,
-                                    'Permanent must be a boolean 1 or 0'
-                                );
-                            }
-
-                            $model['permanent'] = $value1;
-
-                            break;
+                        if ($value1 < 0 || $value1 > 1) {
+                            return $this->_error(
+                                E_USER_NOTICE,
+                                'Permanent must be a boolean 1 or 0'
+                            );
                         }
+
+                        $model['permanent'] = $value1;
+
+                        break;
 
                     case 'max' :
-                        {
-                            /* Need an integer value greater than -1, less than 1,000,000 */
-                            $value1 = ( integer )$value1;
+                        /* Need an integer value greater than -1, less than 1,000,000 */
+                        $value1 = ( integer )$value1;
 
-                            if (($value1 < 0) || ($value1 > 1000000)) {
-                                return $this->_error(
-                                    E_USER_NOTICE,
-                                    'Max must be less than 1,000,000 and greater than -1'
-                                );
-                            }
-
-                            $model['max'] = $value1;
-
-                            break;
+                        if (($value1 < 0) || ($value1 > 1000000)) {
+                            return $this->_error(
+                                E_USER_NOTICE,
+                                'Max must be less than 1,000,000 and greater than -1'
+                            );
                         }
+
+                        $model['max'] = $value1;
+
+                        break;
 
                     case 'type' :
-                        {
-                            /* Can only accept an integer, string, boolean */
-                            switch (strtolower($value1)) {
-                                case 'text' :
-                                    {
-                                        $model['type'] = 'text';
+                        /* Can only accept an integer, string, boolean */
+                        switch (strtolower($value1)) {
+                            case 'text' :
+                                $model['type'] = 'text';
 
-                                        break;
-                                    }
+                                break;
 
-                                case 'string' :
-                                    {
-                                        $model['type'] = 'string';
+                            case 'string' :
+                                $model['type'] = 'string';
 
-                                        break;
-                                    }
+                                break;
 
-                                case 'int' :
-                                    {
-                                        $model['type'] = 'int';
+                            case 'int' :
+                                $model['type'] = 'int';
 
-                                        break;
-                                    }
+                                break;
 
-                                case 'bool' :
-                                    {
-                                        $model['type'] = 'bool';
+                            case 'bool' :
+                                $model['type'] = 'bool';
 
-                                        break;
-                                    }
+                                break;
 
-                                case 'enum' :
-                                    {
-                                        if (!isset($value['enum_val'])
-                                            || !is_array($value['enum_val'])
-                                            || empty($value['enum_val'])) {
-                                            return $this->_error(
-                                                E_USER_NOTICE,
-                                                'Missing enum\'s list of values or invalid list inputted'
-                                            );
-                                        }
-
-                                        $model['type'] = 'enum';
-
-                                        $model['enum_val'] = serialize(
-                                            $value['enum_val']
-                                        );
-
-                                        break;
-                                    }
-
-                                case 'date' :
-                                    {
-                                        $model['type'] = 'date';
-
-                                        break;
-                                    }
-
-                                default :
-                                    {
-                                        return $this->_error(
-                                            E_USER_NOTICE,
-                                            'Invalid column type; can only accept integers, strings, and booleans'
-                                        );
-                                    }
-                            }
-
-                            break;
-                        }
-
-                    case 'default' :
-                        {
-                            $model['default'] = $value1;
-
-                            break;
-                        }
-
-                    case 'primary' :
-                        {
-                            /* Need either a 1 or 0 */
-                            $value1 = ( integer )$value1;
-
-                            if (($value1 < 0) || ($value1 > 1)) {
-                                return $this->_error(
-                                    E_USER_NOTICE,
-                                    'Primary must be a boolean 1 or 0'
-                                );
-                            }
-
-                            /* Make sure primary hasn't already been set */
-                            if (($primaryset === true) && ($value1 == 1)) {
-                                return $this->_error(
-                                    E_USER_NOTICE,
-                                    'Only one primary column can be set'
-                                );
-                            }
-
-                            if ($value1 == 1) {
-                                /* Primary keys have to be integer and auto_increment */
-                                $value['auto_increment']
-                                    = isset($value['auto_increment'])
-                                    ? $value['auto_increment'] : 0;
-                                $value['type'] = isset($value['type'])
-                                    ? $value['type'] : 0;
-
-                                if (($value['auto_increment'] != 1)
-                                    || ($value['type'] != 'int')) {
+                            case 'enum' :
+                                if (!isset($value['enum_val'])
+                                    || !is_array($value['enum_val'])
+                                    || empty($value['enum_val'])) {
                                     return $this->_error(
                                         E_USER_NOTICE,
-                                        'Primary keys must be of type \'integer\' and auto_increment'
+                                        'Missing enum\'s list of values or invalid list inputted'
                                     );
                                 }
 
-                                $cols['primary'] = $key;
-                            }
+                                $model['type'] = 'enum';
 
-                            break;
+                                $model['enum_val'] = serialize(
+                                    $value['enum_val']
+                                );
+
+                                break;
+
+                            case 'date' :
+                                $model['type'] = 'date';
+
+                                break;
+
+                            default :
+                                return $this->_error(
+                                    E_USER_NOTICE,
+                                    'Invalid column type; can only accept integers, strings, and booleans'
+                                );
                         }
 
-                    case 'enum_val':
-                        {
-                            break;
-                        }
+                        break;
 
-                    default:
-                        {
+                    case 'default' :
+                        $model['default'] = $value1;
+
+                        break;
+
+                    case 'primary' :
+                        /* Need either a 1 or 0 */
+                        $value1 = ( integer )$value1;
+
+                        if (($value1 < 0) || ($value1 > 1)) {
                             return $this->_error(
                                 E_USER_NOTICE,
-                                'Invalid column definition, ["'.$key1
-                                .'"], specified'
+                                'Primary must be a boolean 1 or 0'
                             );
                         }
+
+                        /* Make sure primary hasn't already been set */
+                        if (($primaryset === true) && ($value1 == 1)) {
+                            return $this->_error(
+                                E_USER_NOTICE,
+                                'Only one primary column can be set'
+                            );
+                        }
+
+                        if ($value1 == 1) {
+                            /* Primary keys have to be integer and auto_increment */
+                            $value['auto_increment']
+                                = isset($value['auto_increment'])
+                                ? $value['auto_increment'] : 0;
+                            $value['type'] = isset($value['type'])
+                                ? $value['type'] : 0;
+
+                            if (($value['auto_increment'] != 1)
+                                || ($value['type'] != 'int')) {
+                                return $this->_error(
+                                    E_USER_NOTICE,
+                                    'Primary keys must be of type \'integer\' and auto_increment'
+                                );
+                            }
+
+                            $cols['primary'] = $key;
+                        }
+
+                        break;
+
+                    case 'enum_val':
+                        break;
+
+                    default:
+                        return $this->_error(
+                            E_USER_NOTICE,
+                            sprintf('Invalid column definition, ["%s"], specified', $key1)
+                        );
                 }
             }
 
@@ -1218,24 +1148,24 @@ class TxtSQLCore extends TxtSQL
         }
 
         /* Create two files, $name.myd (empty), and $name.frm (the column defintions) */
-        $filename = "$this->_LIBPATH/$this->_SELECTEDDB/$arg[table]";
+        $filename = "$this->dbPath/$this->dbName/$arg[table]";
 
         /* Make sure table doesn't exist already */
-        if (is_file($filename.".MYD") || is_file($filename.".FRM")) {
+        if (is_file($filename.'.MYD') || is_file($filename.'.FRM')) {
             return $this->_error(
                 E_USER_NOTICE,
-                'Table \''.$arg['table'].'\' already exists'
+                sprintf('Table \'%s\' already exists', $arg['table'])
             );
         }
 
         /* Go ahead and create the files */
-        if ($this->_writeFile($filename.".FRM", 'w', serialize($cols))
+        if ($this->_writeFile($filename.'.FRM', 'w', serialize($cols))
             === true) {
-            if ($this->_writeFile($filename.".MYD", 'w', serialize([]))
+            if ($this->_writeFile($filename.'.MYD', 'w', serialize([]))
                 === true) {
                 /* Save files to cache */
-                $this->_CACHE[$filename.'.FRM'] = $cols;
-                $this->_CACHE[$filename.'.MYD'] = [];
+                $this->cache[$filename.'.FRM'] = $cols;
+                $this->cache[$filename.'.MYD'] = [];
 
                 return true;
             }
@@ -1273,25 +1203,25 @@ class TxtSQLCore extends TxtSQL
         }
 
         /* Do we have selected database? */
-        if (empty($this->_SELECTEDDB)) {
+        if (empty($this->dbName)) {
             return $this->_error(E_USER_NOTICE, 'No database selected');
         }
 
         /* Make sure the database isn't locked */
-        if ($this->isLocked($this->_SELECTEDDB)) {
+        if ($this->isLocked($this->dbName)) {
             return $this->_error(
                 E_USER_NOTICE,
-                'Database \''.$this->_SELECTEDDB.'\' is locked'
+                sprintf('Database \'%s\' is locked', $this->dbName)
             );
         }
 
         /* Does table exist? */
-        $filename = "$this->_LIBPATH/$this->_SELECTEDDB/$arg[table]";
+        $filename = "$this->dbPath/$this->dbName/$arg[table]";
 
         if (!is_file($filename.'.MYD') || !is_file($filename.'.FRM')) {
             return $this->_error(
                 E_USER_NOTICE,
-                'Table '.$arg['table'].'\' doesn\'t exist'
+                sprintf('Table %s doesn\'t exist', $arg['table'])
             );
         }
 
@@ -1299,7 +1229,7 @@ class TxtSQLCore extends TxtSQL
         if (!@unlink($filename.'.MYD') || !@unlink($filename.'.FRM')) {
             $this->_error(
                 E_USER_ERROR,
-                'Could not delete table \''.$arg['table'].'\''
+                sprintf('Could not delete table \'%s\'', $arg['table'])
             );
         }
 
@@ -1325,15 +1255,15 @@ class TxtSQLCore extends TxtSQL
         }
 
         /* Do we have a selected database? */
-        if (empty($this->_SELECTEDDB)) {
+        if (empty($this->dbName)) {
             return $this->_error(E_USER_NOTICE, 'No database selected');
         }
 
         /* Make sure the database isn't locked */
-        if ($this->isLocked($this->_SELECTEDDB)) {
+        if ($this->isLocked($this->dbName)) {
             return $this->_error(
                 E_USER_NOTICE,
-                'Database \''.$this->_SELECTEDDB.'\' is locked'
+                sprintf('Database \'%s\' is locked', $this->dbName)
             );
         }
 
@@ -1355,12 +1285,12 @@ class TxtSQLCore extends TxtSQL
         }
 
         /* Check to see if the table exists */
-        $filename = "$this->_LIBPATH/$this->_SELECTEDDB/$arg[table]";
+        $filename = "$this->dbPath/$this->dbName/$arg[table]";
 
         if (!is_file($filename.'.MYD') || !is_file($filename.'.FRM')) {
             return $this->_error(
                 E_USER_NOTICE,
-                'Table \''.$arg['table'].'\' doesn\'t exist'
+                sprintf('Table \'%s\' doesn\'t exist', $arg['table'])
             );
         }
 
@@ -1370,7 +1300,7 @@ class TxtSQLCore extends TxtSQL
                 = $this->_readFile($filename.'.FRM')) === false) {
             return $this->_error(
                 E_USER_NOTICE,
-                'Table \''.$arg['table'].'\' doesn\'t exist'
+                sprintf('Table \'%s\' doesn\'t exist', $arg['table'])
             );
         }
 
@@ -1381,863 +1311,777 @@ class TxtSQLCore extends TxtSQL
         $action = strtolower($arg['action']);
 
         /* Perform the proper action */
-        switch (strtolower($arg['action'])) {
+        switch ($action) {
             /**************************************************************
              * I n s e r t   A   C o l u m n   I n t o   T h e   T a b l e
              **************************************************************/
             case 'insert' :
-                {
-                    /* Make sure we have a column name */
-                    if (empty($arg['name'])) {
-                        return $this->_error(
-                            E_USER_NOTICE,
-                            'Forgot to input new column\'s name'
-                        );
-                    }
+                /* Make sure we have a column name */
+                if (empty($arg['name'])) {
+                    return $this->_error(
+                        E_USER_NOTICE,
+                        'Forgot to input new column\'s name'
+                    );
+                }
 
-                    /* Cannot name column primary */
-                    if ($arg['name'] == 'primary') {
-                        return $this->_error(
-                            E_USER_NOTICE,
-                            'Cannot name column primary (use of reserved words)'
-                        );
-                    } /* Check whether the column exists already or not */
-                    elseif (isset($cols[$arg['name']])) {
-                        return $this->_error(
-                            E_USER_NOTICE,
-                            'Column \''.$arg['name'].'\' already exists'
-                        );
-                    }
+                /* Cannot name column primary */
+                if ($arg['name'] == 'primary') {
+                    return $this->_error(
+                        E_USER_NOTICE,
+                        'Cannot name column primary (use of reserved words)'
+                    );
+                } /* Check whether the column exists already or not */
+                elseif (isset($cols[$arg['name']])) {
+                    return $this->_error(
+                        E_USER_NOTICE,
+                        sprintf('Column \'%s\' already exists', $arg['name'])
+                    );
+                }
 
-                    /* Check to see if we have a column to insert after */
-                    if (empty($arg['after'])) {
-                        $colNames = array_keys($cols);
-                        $arg['after'] = $colNames[count($cols) - 1];
-                    }
+                /* Check to see if we have a column to insert after */
+                if (empty($arg['after'])) {
+                    $colNames = array_keys($cols);
+                    $arg['after'] = $colNames[count($cols) - 1];
+                }
 
-                    /* Parse the types for this column */
-                    $model = [
-                        'permanent'      => 0,
-                        'auto_increment' => 0,
-                        'max'            => 0,
-                        'autocount'      => 0,
-                        'default'        => '',
-                        'enum_val'       => '',
-                        'type'           => 'int',
-                    ];
+                /* Parse the types for this column */
+                $model = [
+                    'permanent'      => 0,
+                    'auto_increment' => 0,
+                    'max'            => 0,
+                    'autocount'      => 0,
+                    'default'        => '',
+                    'enum_val'       => '',
+                    'type'           => 'int',
+                ];
 
-                    foreach ($arg['values'] as $key => $value) {
-                        switch (strtolower($key)) {
-                            case 'auto_increment' :
-                                {
-                                    /* Need either a 1 or 0 */
-                                    $value = ( integer )$value;
+                foreach ($arg['values'] as $key => $value) {
+                    switch (strtolower($key)) {
+                        case 'auto_increment' :
+                            /* Need either a 1 or 0 */
+                            $value = ( integer )$value;
 
-                                    if (($value < 0) || ($value > 1)) {
+                            if (($value < 0) || ($value > 1)) {
+                                return $this->_error(
+                                    E_USER_NOTICE,
+                                    'Auto_increment must be a boolean 1 or 0'
+                                );
+                            }
+
+                            /* Has to be an integer type */
+                            if (isset($arg['values']['type'])
+                                && ($arg['values']['type'] != 'int')
+                                && ($value == 1)) {
+                                return $this->_error(
+                                    E_USER_NOTICE,
+                                    'auto_increment must be an integer type'
+                                );
+                            }
+
+                            $model['auto_increment'] = $value;
+
+                            break;
+
+                        case 'permanent' :
+                            /* Need either a 1 or 0 */
+                            $value = ( integer )$value;
+
+                            if (($value < 0) || ($value > 1)) {
+                                return $this->_error(
+                                    E_USER_NOTICE,
+                                    'Permanent must be a boolean 1 or 0'
+                                );
+                            }
+
+                            $model['permanent'] = $value;
+
+                            break;
+
+                        case 'max' :
+                            /* Need an integer value greater than -1, less than 1,000,000 */
+                            $value = ( integer )$value;
+
+                            if (($value < 0) || ($value > 1000000)) {
+                                return $this->_error(
+                                    E_USER_NOTICE,
+                                    'Max must be less than 1,000,000 and greater than -1'
+                                );
+                            }
+
+                            $model['max'] = $value;
+
+                            break;
+
+                        case 'type' :
+                            /* Can only accept an integer, string, boolean */
+                            switch (strtolower($value)) {
+                                case 'text' :
+                                    $model['type'] = 'text';
+
+                                    break;
+
+                                case 'string' :
+                                    $model['type'] = 'string';
+
+                                    break;
+
+                                case 'int' :
+                                    $model['type'] = 'int';
+
+                                    break;
+
+                                case 'bool' :
+                                    $model['type'] = 'bool';
+
+                                    break;
+
+                                case 'enum' :
+                                    if (!isset($arg['values']['enum_val'])
+                                        || !is_array(
+                                            $arg['values']['enum_val']
+                                        )
+                                        || empty($arg['values']['enum_val'])) {
                                         return $this->_error(
                                             E_USER_NOTICE,
-                                            'Auto_increment must be a boolean 1 or 0'
+                                            'Missing enum\'s list of values or invalid list inputted'
                                         );
                                     }
 
-                                    /* Has to be an integer type */
-                                    if (isset($arg['values']['type'])
-                                        && ($arg['values']['type'] != 'int')
-                                        && ($value == 1)) {
-                                        return $this->_error(
-                                            E_USER_NOTICE,
-                                            'auto_increment must be an integer type'
-                                        );
-                                    }
-
-                                    $model['auto_increment'] = $value;
+                                    $model['type'] = 'enum';
+                                    $model['enum_val'] = serialize(
+                                        $arg['values']['enum_val']
+                                    );
 
                                     break;
-                                }
 
-                            case 'permanent' :
-                                {
-                                    /* Need either a 1 or 0 */
-                                    $value = ( integer )$value;
-
-                                    if (($value < 0) || ($value > 1)) {
-                                        return $this->_error(
-                                            E_USER_NOTICE,
-                                            'Permanent must be a boolean 1 or 0'
-                                        );
-                                    }
-
-                                    $model['permanent'] = $value;
+                                case 'date':
+                                    $model['type'] = 'date';
 
                                     break;
-                                }
 
-                            case 'max' :
-                                {
-                                    /* Need an integer value greater than -1, less than 1,000,000 */
-                                    $value = ( integer )$value;
-
-                                    if (($value < 0) || ($value > 1000000)) {
-                                        return $this->_error(
-                                            E_USER_NOTICE,
-                                            'Max must be less than 1,000,000 and greater than -1'
-                                        );
-                                    }
-
-                                    $model['max'] = $value;
-
-                                    break;
-                                }
-
-                            case 'type' :
-                                {
-                                    /* Can only accept an integer, string, boolean */
-                                    switch (strtolower($value)) {
-                                        case 'text' :
-                                            {
-                                                $model['type'] = 'text';
-
-                                                break;
-                                            }
-
-                                        case 'string' :
-                                            {
-                                                $model['type'] = 'string';
-
-                                                break;
-                                            }
-
-                                        case 'int' :
-                                            {
-                                                $model['type'] = 'int';
-
-                                                break;
-                                            }
-
-                                        case 'bool' :
-                                            {
-                                                $model['type'] = 'bool';
-
-                                                break;
-                                            }
-
-                                        case 'enum' :
-                                            {
-                                                if (!isset($arg['values']['enum_val'])
-                                                    || !is_array(
-                                                        $arg['values']['enum_val']
-                                                    )
-                                                    || empty($arg['values']['enum_val'])) {
-                                                    return $this->_error(
-                                                        E_USER_NOTICE,
-                                                        'Missing enum\'s list of values or invalid list inputted'
-                                                    );
-                                                }
-
-                                                $model['type'] = 'enum';
-                                                $model['enum_val'] = serialize(
-                                                    $arg['values']['enum_val']
-                                                );
-
-                                                break;
-                                            }
-
-                                        case 'date':
-                                            {
-                                                $model['type'] = 'date';
-
-                                                break;
-                                            }
-
-                                        default :
-                                            {
-                                                return $this->_error(
-                                                    E_USER_NOTICE,
-                                                    'Invalid column type, can only accept integers, strings, and booleans'
-                                                );
-                                            }
-                                    }
-
-                                    break;
-                                }
-
-                            case 'default' :
-                                {
-                                    $model['default'] = $value;
-
-                                    break;
-                                }
-
-                            case 'primary' :
-                                {
-                                    /* Need either a 1 or 0 */
-                                    $value = ( integer )$value;
-
-                                    if (($value < 0) || ($value > 1)) {
-                                        return $this->_error(
-                                            E_USER_NOTICE,
-                                            'Primary must be a boolean 1 or 0'
-                                        );
-                                    }
-
-                                    /* Make sure primary hasn't already been set */
-                                    if (($primaryset === true)
-                                        && ($value == 1)) {
-                                        return $this->_error(
-                                            E_USER_NOTICE,
-                                            'Only one primary column can be set'
-                                        );
-                                    }
-
-                                    if ($value == 1) {
-                                        $cols['primary'] = $arg['name'];
-                                    }
-
-                                    break;
-                                }
-
-                            case 'enum_val' :
-                                {
-                                    break;
-                                }
-
-                            default :
-                                {
+                                default :
                                     return $this->_error(
                                         E_USER_NOTICE,
-                                        'Invalid column definition, ["'.$key
-                                        .'"], specified'
+                                        'Invalid column type, can only accept integers, strings, and booleans'
                                     );
-                                }
-                        }
-                    }
+                            }
 
-                    /* Determine the column in which we insert after */
-                    if ($arg['after'] == 'primary') {
-                        $afterColPos = 1;
-                    } else {
-                        if (($afterColPos = $this->_getColPos(
-                                    $arg['after'],
-                                    $cols
-                                ) + 2) === false) {
+                            break;
+
+                        case 'default' :
+                            $model['default'] = $value;
+
+                            break;
+
+                        case 'primary' :
+                            /* Need either a 1 or 0 */
+                            $value = ( integer )$value;
+
+                            if (($value < 0) || ($value > 1)) {
+                                return $this->_error(
+                                    E_USER_NOTICE,
+                                    'Primary must be a boolean 1 or 0'
+                                );
+                            }
+
+                            /* Make sure primary hasn't already been set */
+                            if (($primaryset === true)
+                                && ($value == 1)) {
+                                return $this->_error(
+                                    E_USER_NOTICE,
+                                    'Only one primary column can be set'
+                                );
+                            }
+
+                            if ($value == 1) {
+                                $cols['primary'] = $arg['name'];
+                            }
+
+                            break;
+
+                        case 'enum_val' :
+                            break;
+
+                        default :
                             return $this->_error(
                                 E_USER_NOTICE,
-                                'Column \''.$arg['after'].'\' doesn\'t exist'
+                                sprintf('Invalid column definition, ["%s"], specified', $key)
                             );
-                        }
                     }
+                }
 
-                    /* Add the column to the list of already existing columns,
-				   but after the specified column */
-                    $i = 0;
-
-                    foreach ($cols as $key => $value) {
-                        $temp[$key] = $value;
-                        $i = $i + 1;
-
-                        if ($i == $afterColPos) {
-                            $temp[$arg['name']] = $model;
-                        }
+                /* Determine the column in which we insert after */
+                if ($arg['after'] == 'primary') {
+                    $afterColPos = 1;
+                } else {
+                    if (($afterColPos = $this->_getColPos(
+                                $arg['after'],
+                                $cols
+                            ) + 2) === false) {
+                        return $this->_error(
+                            E_USER_NOTICE,
+                            sprintf('Column \'%s\' doesn\'t exist', $arg['after'])
+                        );
                     }
+                }
 
-                    $cols = $temp;
+                /* Add the column to the list of already existing columns,
+               but after the specified column */
+                $i = 0;
 
-                    /* Add the column to each row of data */
-                    if (!empty($rows)) {
-                        foreach ($rows as $key => $value) {
-                            $i = 0;
+                foreach ($cols as $key => $value) {
+                    $temp[$key] = $value;
+                    $i = $i + 1;
 
-                            foreach ($value as $key1 => $value1) {
-                                if ($i < $afterColPos - 1) {
-                                    $temp1[$key][$key1] = $value1;
-                                }
+                    if ($i == $afterColPos) {
+                        $temp[$arg['name']] = $model;
+                    }
+                }
 
-                                if (($i == $afterColPos - 1)
-                                    || ($i == count(
-                                            $value
-                                        ) - 1
-                                        && $i == $afterColPos - 2)) {
-                                    $temp1[$key][((($i == (count($value) - 1))
-                                        && ($i == ($afterColPos - 2))) ? ($key1
-                                        + 1) : $key1)]
-                                        = $model['default'];
+                $cols = $temp;
 
-                                    $i++;
-                                }
+                /* Add the column to each row of data */
+                if (!empty($rows)) {
+                    foreach ($rows as $key => $value) {
+                        $i = 0;
 
-                                if ($i > $afterColPos - 1) {
-                                    $temp1[$key][$key1 + 1] = $value1;
-                                }
+                        foreach ($value as $key1 => $value1) {
+                            if ($i < $afterColPos - 1) {
+                                $temp1[$key][$key1] = $value1;
+                            }
+
+                            if (($i == $afterColPos - 1)
+                                || ($i == count(
+                                        $value
+                                    ) - 1
+                                    && $i == $afterColPos - 2)) {
+                                $temp1[$key][((($i == (count($value) - 1))
+                                    && ($i == ($afterColPos - 2))) ? ($key1
+                                    + 1) : $key1)]
+                                    = $model['default'];
 
                                 $i++;
                             }
-                        }
 
-                        $rows = $temp1;
-                    }
+                            if ($i > $afterColPos - 1) {
+                                $temp1[$key][$key1 + 1] = $value1;
+                            }
 
-                    /* Save the information */
-                    if ($this->_writeFile(
-                            $filename.".FRM",
-                            'w',
-                            serialize($cols)
-                        ) === true) {
-                        if ($this->_writeFile(
-                                $filename.".MYD",
-                                'w',
-                                serialize($rows)
-                            ) === true) {
-                            /* Save files to cache */
-                            $this->_CACHE[$filename.'.MYD'] = $rows;
-                            $this->_CACHE[$filename.'.FRM'] = $cols;
-
-                            return true;
+                            $i++;
                         }
                     }
 
-                    return false;
+                    $rows = $temp1;
                 }
+
+                /* Save the information */
+                if ($this->_writeFile(
+                        $filename.'.FRM',
+                        'w',
+                        serialize($cols)
+                    ) === true) {
+                    if ($this->_writeFile(
+                            $filename.'.MYD',
+                            'w',
+                            serialize($rows)
+                        ) === true) {
+                        /* Save files to cache */
+                        $this->cache[$filename.'.MYD'] = $rows;
+                        $this->cache[$filename.'.FRM'] = $cols;
+
+                        return true;
+                    }
+                }
+
+                return false;
 
             /**************************************************
              *  M O D I F Y   A   T A B L E ' S   C O L U M N
              **************************************************/
             case 'modify' :
-                {
-                    /* Are we allowed to change this column? */
-                    if ($arg['name'] == 'primary') {
-                        return $this->_error(
-                            E_USER_NOTICE,
-                            '\'primary\' is not a valid column'
-                        );
-                    } /* Check whether the column exists already or not */
-                    elseif (!isset($cols[$arg['name']])) {
-                        return $this->_error(
-                            E_USER_NOTICE,
-                            'Column \''.$arg['name'].'\' doesn\'t exist'
-                        );
-                    } /* Do we have any values to work with? */
-                    elseif (empty($arg['values'])) {
-                        return $this->_error(
-                            E_USER_NOTICE,
-                            'Empty column set given'
-                        );
-                    }
+                /* Are we allowed to change this column? */
+                if ($arg['name'] == 'primary') {
+                    return $this->_error(
+                        E_USER_NOTICE,
+                        '\'primary\' is not a valid column'
+                    );
+                } /* Check whether the column exists already or not */
+                elseif (!isset($cols[$arg['name']])) {
+                    return $this->_error(
+                        E_USER_NOTICE,
+                        sprintf('Column \'%s\' doesn\'t exist', $arg['name'])
+                    );
+                } /* Do we have any values to work with? */
+                elseif (empty($arg['values'])) {
+                    return $this->_error(
+                        E_USER_NOTICE,
+                        'Empty column set given'
+                    );
+                }
 
-                    /* Parse the types for this column */
-                    $model = [
-                        'permanent'      => $cols[$arg['name']]['permanent'],
-                        'auto_increment' => $cols[$arg['name']]['auto_increment'],
-                        'max'            => $cols[$arg['name']]['max'],
-                        'type'           => $cols[$arg['name']]['type'],
-                        'default'        => $cols[$arg['name']]['default'],
-                        'autocount'      => $cols[$arg['name']]['autocount'],
-                        'enum_val'       => $cols[$arg['name']]['enum_val'],
-                    ];
+                /* Parse the types for this column */
+                $model = [
+                    'permanent'      => $cols[$arg['name']]['permanent'],
+                    'auto_increment' => $cols[$arg['name']]['auto_increment'],
+                    'max'            => $cols[$arg['name']]['max'],
+                    'type'           => $cols[$arg['name']]['type'],
+                    'default'        => $cols[$arg['name']]['default'],
+                    'autocount'      => $cols[$arg['name']]['autocount'],
+                    'enum_val'       => $cols[$arg['name']]['enum_val'],
+                ];
 
-                    foreach ($arg['values'] as $key => $value) {
-                        switch (strtolower($key)) {
-                            case 'auto_increment' :
-                                {
-                                    /* Need either a 1 or 0 */
-                                    $value = ( integer )$value;
+                foreach ($arg['values'] as $key => $value) {
+                    switch (strtolower($key)) {
+                        case 'auto_increment' :
+                            /* Need either a 1 or 0 */
+                            $value = ( integer )$value;
 
-                                    if (($value < 0) || ($value > 1)) {
+                            if (($value < 0) || ($value > 1)) {
+                                return $this->_error(
+                                    E_USER_NOTICE,
+                                    'Auto_increment must be a boolean 1 or 0'
+                                );
+                            }
+
+                            /* Has to be an integer type */
+                            if (isset($arg['values']['type'])
+                                && ($arg['values']['type'] != 'int')
+                                && ($value == 1)) {
+                                return $this->_error(
+                                    E_USER_NOTICE,
+                                    'auto_increment must be an integer type'
+                                );
+                            }
+
+                            $model['auto_increment'] = $value;
+
+                            break;
+
+                        case 'permanent' :
+                            /* Need either a 1 or 0 */
+                            $value = ( integer )$value;
+
+                            if (($value < 0) || ($value > 1)) {
+                                return $this->_error(
+                                    E_USER_NOTICE,
+                                    'Permanent must be a boolean 1 or 0'
+                                );
+                            }
+
+                            $model['permanent'] = $value;
+
+                            break;
+
+                        case 'max' :
+                            /* Need an integer value greater than -1, less than 1,000,000 */
+                            $value = ( integer )$value;
+
+                            if (($value < 0) || ($value > 1000000)) {
+                                return $this->_error(
+                                    E_USER_NOTICE,
+                                    'Max must be less than 1,000,000 and greater than -1'
+                                );
+                            }
+
+                            $model['max'] = $value;
+
+                            break;
+
+                        case 'type' :
+                            /* Can only accept an integer, string, boolean */
+                            switch (strtolower($value)) {
+                                case 'text' :
+                                    $model['type'] = 'text';
+                                    break;
+
+                                case 'string' :
+                                    $model['type'] = 'string';
+                                    break;
+
+                                case 'int' :
+                                    $model['type'] = 'int';
+                                    break;
+
+                                case 'bool' :
+                                    $model['type'] = 'bool';
+                                    break;
+
+                                case 'enum' :
+                                    if (!isset($arg['values']['enum_val'])
+                                        || !is_array(
+                                            $arg['values']['enum_val']
+                                        )
+                                        || empty($arg['values']['enum_val'])) {
                                         return $this->_error(
                                             E_USER_NOTICE,
-                                            'Auto_increment must be a boolean 1 or 0'
+                                            'Missing enum\'s list of values or invalid list inputted'
                                         );
                                     }
 
-                                    /* Has to be an integer type */
-                                    if (isset($arg['values']['type'])
-                                        && ($arg['values']['type'] != 'int')
-                                        && ($value == 1)) {
-                                        return $this->_error(
-                                            E_USER_NOTICE,
-                                            'auto_increment must be an integer type'
-                                        );
-                                    }
-
-                                    $model['auto_increment'] = $value;
+                                    $model['type'] = 'enum';
+                                    $model['enum_val'] = serialize(
+                                        $arg['values']['enum_val']
+                                    );
 
                                     break;
-                                }
 
-                            case 'permanent' :
-                                {
-                                    /* Need either a 1 or 0 */
-                                    $value = ( integer )$value;
-
-                                    if (($value < 0) || ($value > 1)) {
-                                        return $this->_error(
-                                            E_USER_NOTICE,
-                                            'Permanent must be a boolean 1 or 0'
-                                        );
-                                    }
-
-                                    $model['permanent'] = $value;
-
+                                case 'date' :
+                                    $model['type'] = 'date';
                                     break;
-                                }
 
-                            case 'max' :
-                                {
-                                    /* Need an integer value greater than -1, less than 1,000,000 */
-                                    $value = ( integer )$value;
-
-                                    if (($value < 0) || ($value > 1000000)) {
-                                        return $this->_error(
-                                            E_USER_NOTICE,
-                                            'Max must be less than 1,000,000 and greater than -1'
-                                        );
-                                    }
-
-                                    $model['max'] = $value;
-
-                                    break;
-                                }
-
-                            case 'type' :
-                                {
-                                    /* Can only accept an integer, string, boolean */
-                                    switch (strtolower($value)) {
-                                        case 'text' :
-                                            {
-                                                $model['type'] = 'text';
-
-                                                break;
-                                            }
-
-                                        case 'string' :
-                                            {
-                                                $model['type'] = 'string';
-
-                                                break;
-                                            }
-
-                                        case 'int' :
-                                            {
-                                                $model['type'] = 'int';
-
-                                                break;
-                                            }
-
-                                        case 'bool' :
-                                            {
-                                                $model['type'] = 'bool';
-
-                                                break;
-                                            }
-
-                                        case 'enum' :
-                                            {
-                                                if (!isset($arg['values']['enum_val'])
-                                                    || !is_array(
-                                                        $arg['values']['enum_val']
-                                                    )
-                                                    || empty($arg['values']['enum_val'])) {
-                                                    return $this->_error(
-                                                        E_USER_NOTICE,
-                                                        'Missing enum\'s list of values or invalid list inputted'
-                                                    );
-                                                }
-
-                                                $model['type'] = 'enum';
-                                                $model['enum_val'] = serialize(
-                                                    $arg['values']['enum_val']
-                                                );
-
-                                                break;
-                                            }
-
-                                        case 'date' :
-                                            {
-                                                $model['type'] = 'date';
-
-                                                break;
-                                            }
-
-                                        default :
-                                            {
-                                                return $this->_error(
-                                                    E_USER_NOTICE,
-                                                    'Invalid column type, can only accept integers, strings, and booleans'
-                                                );
-                                            }
-                                    }
-
-                                    break;
-                                }
-
-                            case 'default' :
-                                {
-                                    $model['default'] = $value;
-
-                                    break;
-                                }
-
-                            case 'primary' :
-                                {
-                                    /* Need either a 1 or 0 */
-                                    $value = ( integer )$value;
-
-                                    if (($value < 0) || ($value > 1)) {
-                                        return $this->_error(
-                                            E_USER_NOTICE,
-                                            'Primary must be a boolean 1 or 0'
-                                        );
-                                    }
-
-                                    /* Make sure primary hasn't already been set */
-                                    if (($primaryset === true)
-                                        && ($value == 1)) {
-                                        return $this->_error(
-                                            E_USER_NOTICE,
-                                            'Only one primary column can be set'
-                                        );
-                                    }
-
-                                    if ($value == 1) {
-                                        $cols['primary'] = $arg['name'];
-                                    }
-
-                                    break;
-                                }
-
-                            case 'enum_val' :
-                                {
-                                    break;
-                                }
-
-                            default :
-                                {
+                                default :
                                     return $this->_error(
                                         E_USER_NOTICE,
-                                        'Invalid column definition, ["'.$key
-                                        .'"], specified'
+                                        'Invalid column type, can only accept integers, strings, and booleans'
                                     );
-                                }
-                        }
+                            }
+
+                            break;
+
+                        case 'default' :
+                            $model['default'] = $value;
+
+                            break;
+
+                        case 'primary' :
+                            /* Need either a 1 or 0 */
+                            $value = ( integer )$value;
+
+                            if (($value < 0) || ($value > 1)) {
+                                return $this->_error(
+                                    E_USER_NOTICE,
+                                    'Primary must be a boolean 1 or 0'
+                                );
+                            }
+
+                            /* Make sure primary hasn't already been set */
+                            if (($primaryset === true)
+                                && ($value == 1)) {
+                                return $this->_error(
+                                    E_USER_NOTICE,
+                                    'Only one primary column can be set'
+                                );
+                            }
+
+                            if ($value == 1) {
+                                $cols['primary'] = $arg['name'];
+                            }
+
+                            break;
+
+                        case 'enum_val' :
+                            break;
+
+                        default :
+                            return $this->_error(
+                                E_USER_NOTICE,
+                                sprintf('Invalid column definition, ["%s"], specified', $key)
+                            );
                     }
-
-                    /* Check for a primary key */
-                    if ((($model['type'] != 'int')
-                            || ($model['auto_increment'] != 1))
-                        && (strtolower($cols['primary']) == strtolower(
-                                $arg['name']
-                            ))) {
-                        $cols['primary'] = '';
-                        $this->_error(
-                            E_USER_NOTICE,
-                            'The primary key has been dropped, column must be auto_increment, and integer'
-                        );
-                    }
-
-
-                    /* Add the column to the list of columns */
-                    $cols[$arg['name']] = $model;
-
-                    /* Save the results */
-                    if ($this->_writeFile(
-                            $filename.".FRM",
-                            'w',
-                            serialize($cols)
-                        ) === true) {
-                        /* Save files to cache */
-                        $this->_CACHE[$filename.'.FRM'] = $cols;
-
-                        return true;
-                    }
-
-                    return false;
                 }
+
+                /* Check for a primary key */
+                if ((($model['type'] != 'int')
+                        || ($model['auto_increment'] != 1))
+                    && (strtolower($cols['primary']) == strtolower(
+                            $arg['name']
+                        ))) {
+                    $cols['primary'] = '';
+                    $this->_error(
+                        E_USER_NOTICE,
+                        'The primary key has been dropped, column must be auto_increment, and integer'
+                    );
+                }
+
+
+                /* Add the column to the list of columns */
+                $cols[$arg['name']] = $model;
+
+                /* Save the results */
+                if ($this->_writeFile(
+                        $filename.'.FRM',
+                        'w',
+                        serialize($cols)
+                    ) === true) {
+                    /* Save files to cache */
+                    $this->cache[$filename.'.FRM'] = $cols;
+
+                    return true;
+                }
+
+                return false;
 
             /**************************************************************
              *  D R O P   A   T A B L E ' S   C O L U M N
              **************************************************************/
             case 'drop' :
-                {
-                    /* Chcek for a valid name */
-                    if (empty($arg['name']) or !preg_match(
-                            '/^[A-Za-z0-9_]+$/',
-                            $arg['name']
-                        )) {
-                        return $this->_error(
-                            E_USER_NOTICE,
-                            'Column name can only contain letters, numbers, and underscores'
-                        );
-                    }
-
-                    /* Does the column exist? */
-                    if (!isset($cols[$arg['name']])
-                        || ($arg['name'] == 'primary')) {
-                        return $this->_error(
-                            E_USER_NOTICE,
-                            'Column \''.$arg['name'].'\' doesn\'t exist'
-                        );
-                    }
-
-                    /* Make sure dropping this column doesn't jeopordize the table */
-                    if (count($cols) - 2 <= 0) {
-                        return $this->_error(
-                            E_USER_NOTICE,
-                            'Cannot drop column; There has to be at-least ONE column present'
-                        );
-                    }
-
-                    /* Get the position that the column was in */
-                    $i = -1;
-
-                    foreach ($cols as $key => $value) {
-                        if (($key == $arg['name']) && ($i > -1)) {
-                            $position = $i;
-
-                            break;
-                        }
-
-                        $i++;
-                    }
-
-                    /* Drop the column from list of columns, including primary key */
-                    if ($cols['primary'] == $arg['name']) {
-                        $cols['primary'] = '';
-                    }
-
-                    unset($cols[$arg['name']]);
-
-                    /* Delete the column from each of the rows of data */
-                    if (is_array($rows) && (count($rows) > 0)) {
-                        foreach ($rows as $key => $value) {
-                            unset($rows[$key][$position]);
-
-                            $rows[$key] = array_splice($rows[$key], 0);
-                        }
-                    }
-
-                    /* Save the results */
-                    if ($this->_writeFile(
-                            $filename.".FRM",
-                            'w',
-                            serialize($cols)
-                        ) === true) {
-                        if ($this->_writeFile(
-                                $filename.".MYD",
-                                'w',
-                                serialize($rows)
-                            ) === true) {
-                            /* Save files to cache */
-                            $this->_CACHE[$filename.'.MYD'] = $rows;
-                            $this->_CACHE[$filename.'.FRM'] = $cols;
-
-                            return true;
-                        }
-                    }
-
-                    return false;
+                /* Chcek for a valid name */
+                if (empty($arg['name']) or !preg_match(
+                        '/^[A-Za-z0-9_]+$/',
+                        $arg['name']
+                    )) {
+                    return $this->_error(
+                        E_USER_NOTICE,
+                        'Column name can only contain letters, numbers, and underscores'
+                    );
                 }
+
+                /* Does the column exist? */
+                if (!isset($cols[$arg['name']])
+                    || ($arg['name'] == 'primary')) {
+                    return $this->_error(
+                        E_USER_NOTICE,
+                        sprintf('Column %s doesn\'t exist', $arg['name'])
+                    );
+                }
+
+                /* Make sure dropping this column doesn't jeopordize the table */
+                if (count($cols) - 2 <= 0) {
+                    return $this->_error(
+                        E_USER_NOTICE,
+                        'Cannot drop column; There has to be at-least ONE column present'
+                    );
+                }
+
+                /* Get the position that the column was in */
+                $i = -1;
+
+                foreach ($cols as $key => $value) {
+                    if (($key == $arg['name']) && ($i > -1)) {
+                        $position = $i;
+
+                        break;
+                    }
+
+                    $i++;
+                }
+
+                /* Drop the column from list of columns, including primary key */
+                if ($cols['primary'] == $arg['name']) {
+                    $cols['primary'] = '';
+                }
+
+                unset($cols[$arg['name']]);
+
+                /* Delete the column from each of the rows of data */
+                if (is_array($rows) && (count($rows) > 0)) {
+                    foreach ($rows as $key => $value) {
+                        unset($rows[$key][$position]);
+
+                        $rows[$key] = array_splice($rows[$key], 0);
+                    }
+                }
+
+                /* Save the results */
+                if ($this->_writeFile(
+                        $filename.".FRM",
+                        'w',
+                        serialize($cols)
+                    ) === true) {
+                    if ($this->_writeFile(
+                            $filename.".MYD",
+                            'w',
+                            serialize($rows)
+                        ) === true) {
+                        /* Save files to cache */
+                        $this->cache[$filename.'.MYD'] = $rows;
+                        $this->cache[$filename.'.FRM'] = $cols;
+
+                        return true;
+                    }
+                }
+
+                return false;
 
             /**************************************************
              *  R E N A M E   A   T A B L E ' S   C O L U M N
              **************************************************/
             case 'rename col' :
-                {
-                    /* Check for valid names */
-                    if (empty($arg['name']) || empty($arg['values']['name'])
-                        || !preg_match(
-                            '/^[A-Za-z0-9_]+$/',
-                            $arg['values']['name']
-                        )) {
-                        return $this->_error(
-                            E_USER_NOTICE,
-                            'Column names can only contain letters, numbers, and underscores'
-                        );
-                    }
-
-                    /* Check to make sure column exists */
-                    if (!isset($cols[$arg['name']])) {
-                        return $this->_error(
-                            E_USER_NOTICE,
-                            'Column \''.$arg['name'].'\' doesn\'t exist'
-                        );
-                    }
-
-                    /* Check to see whether new column name doesn't exist */
-                    if (isset($cols[$arg['values']['name']])
-                        && ($arg['values']['name'] != $arg['name'])) {
-                        return $this->_error(
-                            E_USER_NOTICE,
-                            'Column \''.$arg['name'].'\' already exists'
-                        );
-                    }
-
-                    /* If it was primary key, change primary key */
-                    if ($cols['primary'] == $arg['name']) {
-                        $cols['primary'] = $arg['values']['name'];
-                    }
-
-                    /* Rename column */
-                    $tmp = $cols;
-                    $cols = [];
-
-                    foreach ($tmp as $key => $value) {
-                        if ($key == $arg['name']) {
-                            $key = $arg['values']['name'];
-                        }
-
-                        $cols[$key] = $value;
-                    }
-
-                    /* Save the results */
-                    if ($this->_writeFile(
-                            $filename.".FRM",
-                            'w',
-                            serialize($cols)
-                        ) === true) {
-                        /* Save files to cache */
-                        $this->_CACHE[$filename.'.FRM'] = $cols;
-
-                        return true;
-                    }
-
-                    return false;
+                /* Check for valid names */
+                if (empty($arg['name']) || empty($arg['values']['name'])
+                    || !preg_match(
+                        '/^[A-Za-z0-9_]+$/',
+                        $arg['values']['name']
+                    )) {
+                    return $this->_error(
+                        E_USER_NOTICE,
+                        'Column names can only contain letters, numbers, and underscores'
+                    );
                 }
+
+                /* Check to make sure column exists */
+                if (!isset($cols[$arg['name']])) {
+                    return $this->_error(
+                        E_USER_NOTICE,
+                        sprintf('Column %s doesn\'t exist', $arg['name'])
+                    );
+                }
+
+                /* Check to see whether new column name doesn't exist */
+                if (isset($cols[$arg['values']['name']])
+                    && ($arg['values']['name'] != $arg['name'])) {
+                    return $this->_error(
+                        E_USER_NOTICE,
+                        sprintf('Column %s already exists', $arg['name'])
+                    );
+                }
+
+                /* If it was primary key, change primary key */
+                if ($cols['primary'] == $arg['name']) {
+                    $cols['primary'] = $arg['values']['name'];
+                }
+
+                /* Rename column */
+                $tmp = $cols;
+                $cols = [];
+
+                foreach ($tmp as $key => $value) {
+                    if ($key == $arg['name']) {
+                        $key = $arg['values']['name'];
+                    }
+
+                    $cols[$key] = $value;
+                }
+
+                /* Save the results */
+                if ($this->_writeFile(
+                        $filename.'.FRM',
+                        'w',
+                        serialize($cols)
+                    ) === true) {
+                    /* Save files to cache */
+                    $this->cache[$filename.'.FRM'] = $cols;
+
+                    return true;
+                }
+
+                return false;
 
             /**************************************************************
              *  R E N A M E   A   T A B L E   C O L L E C T I V E L Y
              **************************************************************/
             case 'rename table' :
-                {
-                    /* Check for valid names */
-                    if (!preg_match('/^[A-Za-z0-9_]+$/', $arg['name'])) {
-                        return $this->_error(
-                            E_USER_NOTICE,
-                            'Table name can only contain letters, numbers, and underscores'
-                        );
-                    }
-
-                    /* Make sure new table doesn't exit */
-                    $fp1 = "$this->_LIBPATH/$this->_SELECTEDDB/{$arg['name']}";
-
-                    if (($arg['name'] != $arg['table'])
-                        && (is_file($fp1.'.FRM')
-                            || is_file($fp1.'.MYD'))) {
-                        return $this->_error(
-                            E_USER_NOTICE,
-                            'Table \''.$arg['name'].'\' already exists'
-                        );
-                    }
-
-                    /* Do the renaming */
-                    @rename($filename.'.FRM', $fp1.'.FRM') or $this->_error(
-                        E_USER_ERROR,
-                        'Error renaming file \''.$filename.'.FRM\''
+                /* Check for valid names */
+                if (!preg_match('/^[A-Za-z0-9_]+$/', $arg['name'])) {
+                    return $this->_error(
+                        E_USER_NOTICE,
+                        'Table name can only contain letters, numbers, and underscores'
                     );
-                    @rename($filename.'.MYD', $fp1.'.MYD') or $this->_error(
-                        E_USER_ERROR,
-                        'Error renaming file \''.$filename.'.MYD\''
-                    );
-
-                    return true;
                 }
+
+                /* Make sure new table doesn't exit */
+                $fp1 = "$this->dbPath/$this->dbName/{$arg['name']}";
+
+                if (($arg['name'] != $arg['table'])
+                    && (is_file($fp1.'.FRM')
+                        || is_file($fp1.'.MYD'))) {
+                    return $this->_error(
+                        E_USER_NOTICE,
+                        sprintf('Table %s already exists', $arg['name'])
+                    );
+                }
+
+                /* Do the renaming */
+                @rename($filename.'.FRM', $fp1.'.FRM') or $this->_error(
+                    E_USER_ERROR,
+                    'Error renaming file \''.$filename.'.FRM\''
+                );
+                @rename($filename.'.MYD', $fp1.'.MYD') or $this->_error(
+                    E_USER_ERROR,
+                    'Error renaming file \''.$filename.'.MYD\''
+                );
+
+                return true;
 
             /************************************************************
              *  A D D   A   P R I M A R Y   K E Y   T O   A   T A B L E
              ************************************************************/
             case 'addkey' :
-                {
-                    /* Check for a valid column name */
-                    if (empty($arg['values']['name'])) {
-                        return $this->_error(
-                            E_USER_NOTICE,
-                            'Invalid Column Name'
-                        );
-                    }
-
-                    if ($this->_getColPos($arg['values']['name'], $cols)
-                        === false) {
-                        return $this->_error(
-                            E_USER_NOTICE,
-                            'Column \''.$arg['values']['name']
-                            .'\' doesn\'t exist'
-                        );
-                    }
-
-                    /* Does the primary key already exist? */
-                    if (!empty($cols['primary'])) {
-                        return $this->_error(
-                            E_USER_NOTICE,
-                            'Primary key already set to \''.$cols['primary']
-                            .'\''
-                        );
-                    }
-
-                    /* Primary key must be integer, and auto_increment */
-                    if (($cols[$arg['values']['name']]['type'] != 'int')
-                        || ($cols[$arg['values']['name']]['auto_increment']
-                            === false)) {
-                        return $this->_error(
-                            E_USER_NOTICE,
-                            'Primary key must be integer type, and auto increment'
-                        );
-                    }
-
-                    /* Set the column as the primary */
-                    $cols['primary'] = $arg['values']['name'];
-
-                    /* Save the results */
-                    if ($this->_writeFile(
-                            $filename.".FRM",
-                            'w',
-                            serialize($cols)
-                        ) === true) {
-                        /* Save files to cache */
-                        $this->_CACHE[$filename.'.FRM'] = $cols;
-
-                        return true;
-                    }
-
-                    return false;
+                /* Check for a valid column name */
+                if (empty($arg['values']['name'])) {
+                    return $this->_error(
+                        E_USER_NOTICE,
+                        'Invalid Column Name'
+                    );
                 }
+
+                if ($this->_getColPos($arg['values']['name'], $cols)
+                    === false) {
+                    return $this->_error(
+                        E_USER_NOTICE,
+                        sprintf('Column %s doesn\'t exist', $arg['values']['name'])
+                    );
+                }
+
+                /* Does the primary key already exist? */
+                if (!empty($cols['primary'])) {
+                    return $this->_error(
+                        E_USER_NOTICE,
+                        sprintf('Primary key already set to %s', $cols['primary'])
+                    );
+                }
+
+                /* Primary key must be integer, and auto_increment */
+                if (($cols[$arg['values']['name']]['type'] != 'int')
+                    || ($cols[$arg['values']['name']]['auto_increment']
+                        === false)) {
+                    return $this->_error(
+                        E_USER_NOTICE,
+                        'Primary key must be integer type, and auto increment'
+                    );
+                }
+
+                /* Set the column as the primary */
+                $cols['primary'] = $arg['values']['name'];
+
+                /* Save the results */
+                if ($this->_writeFile(
+                        $filename.".FRM",
+                        'w',
+                        serialize($cols)
+                    ) === true) {
+                    /* Save files to cache */
+                    $this->cache[$filename.'.FRM'] = $cols;
+
+                    return true;
+                }
+
+                return false;
 
             /**************************************************************
              * D R O P   T H E   T A B L E ' S   P R I M A R Y   K E Y
              **************************************************************/
             case 'dropkey' :
-                {
-                    /* Does the table have a primary key? */
-                    if (empty($cols['primary'])) {
-                        return $this->_error(
-                            E_USER_NOTICE,
-                            'No Primary key exists for table \''.$arg['table']
-                            .'\''
-                        );
-                    }
-
-                    /* Delete the primary key */
-                    $cols['primary'] = '';
-
-                    /* Save the results */
-                    if ($this->_writeFile(
-                            $filename.".FRM",
-                            'w',
-                            serialize($cols)
-                        ) === true) {
-                        /* Save files to cache */
-                        $this->_CACHE[$filename.'.FRM'] = $cols;
-
-                        return true;
-                    }
-
-                    return false;
-                }
-
-            default :
-                {
+                /* Does the table have a primary key? */
+                if (empty($cols['primary'])) {
                     return $this->_error(
                         E_USER_NOTICE,
-                        'Invalid action specified for alter table query'
+                        sprintf('No Primary key exists for table %s', $arg['table'])
                     );
                 }
+
+                /* Delete the primary key */
+                $cols['primary'] = '';
+
+                /* Save the results */
+                if ($this->_writeFile(
+                        $filename.".FRM",
+                        'w',
+                        serialize($cols)
+                    ) === true) {
+                    /* Save files to cache */
+                    $this->cache[$filename.'.FRM'] = $cols;
+
+                    return true;
+                }
+
+                return false;
+
+            default :
+                return $this->_error(
+                    E_USER_NOTICE,
+                    'Invalid action specified for alter table query'
+                );
         }
     }
 
@@ -2261,17 +2105,17 @@ class TxtSQLCore extends TxtSQL
         }
 
         /* Do we have a selected database? */
-        if (empty($this->_SELECTEDDB)) {
+        if (empty($this->dbName)) {
             return $this->_error(E_USER_NOTICE, 'No database selected');
         }
 
         /* Does table exist? */
-        $filename = "$this->_LIBPATH/$this->_SELECTEDDB/{$arg['table']}";
+        $filename = "$this->dbPath/$this->dbName/{$arg['table']}";
 
         if (!(is_file($filename.'.MYD') && is_file($filename.'.FRM'))) {
             return $this->_error(
                 E_USER_NOTICE,
-                'Table \''.$arg['table'].'\' doesn\'t exist'
+                sprintf('Table %s  doesn\'t exist', $arg['table'])
             );
         }
 
@@ -2279,7 +2123,7 @@ class TxtSQLCore extends TxtSQL
         if (($cols = $this->_readFile($filename.'.FRM')) === false) {
             $this->_error(
                 E_USER_ERROR,
-                'Couldn\'t open file \''.$filename.'.FRM\' for reading'
+                sprintf('Couldn\'t open file %s.FRM for reading', $filename)
             );
         }
 
@@ -2305,10 +2149,10 @@ class TxtSQLCore extends TxtSQL
     public function showdatabases()
     {
         /* Can we open the directory up? */
-        if (($fp = @opendir("$this->_LIBPATH")) === false) {
+        if (($fp = @opendir("$this->dbPath")) === false) {
             $this->_error(
                 E_USER_ERROR,
-                'Could not open directory, \''.$this->_LIBPATH.'\', for reading'
+                sprintf('Could not open directory, %s, for reading', $this->dbPath)
             );
         }
 
@@ -2316,7 +2160,7 @@ class TxtSQLCore extends TxtSQL
         while (($file = @readdir($fp)) !== false) {
             if (($file != ".") && ($file != "..")
                 && (strtolower($file) != 'txtsql')
-                && (is_dir("$this->_LIBPATH/$file"))) {
+                && (is_dir("$this->dbPath/$file"))) {
                 $db[] = $file;
             }
         }
@@ -2347,15 +2191,15 @@ class TxtSQLCore extends TxtSQL
         if ($this->_dbExist($arg['db'])) {
             return $this->_error(
                 E_USER_NOTICE,
-                'Database \''.$arg['db'].'\' already exists'
+                sprintf('Database %s already exists', $arg['db'])
             );
         }
 
         /* Go ahead and create the database */
-        if (!mkdir("$this->_LIBPATH/$arg[db]")) {
+        if (!mkdir("$this->dbPath/$arg[db]")) {
             return $this->_error(
                 E_USER_NOTICE,
-                'Error creating database \''.$arg['db'].'\''
+                sprintf('Error creating database %s', $arg['db'])
             );
         }
 
@@ -2389,7 +2233,7 @@ class TxtSQLCore extends TxtSQL
         if (!$this->_dbExist($arg['db'])) {
             return $this->_error(
                 E_USER_NOTICE,
-                'Database \''.$arg['db'].'\' doesn\'t exist'
+                sprintf('Database %s doesn\'t exist', $arg['db'])
             );
         }
 
@@ -2397,27 +2241,27 @@ class TxtSQLCore extends TxtSQL
         if ($this->isLocked($arg['db'])) {
             return $this->_error(
                 E_USER_NOTICE,
-                'Database \''.$arg['db'].'\' is locked'
+                sprintf('Database %s is locked', $arg['db'])
             );
         }
 
         /* Remove any files inside of the directory */
-        if (($fp = @opendir("$this->_LIBPATH/$arg[db]")) === false) {
+        if (($fp = @opendir("$this->dbPath/$arg[db]")) === false) {
             $this->_error(
                 E_USER_ERROR,
-                'Could not delete database \''.$arg['db'].'\''
+                sprintf('Could not delete database %s', $arg['db'])
             );
         }
 
         while (($file = @readdir($fp)) !== false) {
-            if (($file != ".") && ($file != "..")) {
-                if (is_dir("$this->_LIBPATH/$arg[db]/$file")
+            if (($file != '.') && ($file != '..')) {
+                if (is_dir("$this->dbPath/$arg[db]/$file")
                     || !@unlink(
-                        "$this->_LIBPATH/$arg[db]/$file"
+                        "$this->dbPath/$arg[db]/$file"
                     )) {
                     return $this->_error(
                         E_USER_NOTICE,
-                        'Could not delete database \''.$arg['db'].'\''
+                        sprintf('Could not delete database %s', $arg['db'])
                     );
                 }
             }
@@ -2426,10 +2270,10 @@ class TxtSQLCore extends TxtSQL
         @closedir($fp);
 
         /* Go ahead and delete the database */
-        if (!@rmdir("$this->_LIBPATH/$arg[db]")) {
+        if (!@rmdir("$this->dbPath/$arg[db]")) {
             $this->_error(
                 E_USER_ERROR,
-                'Could not delete database \''.$arg['db'].'\''
+                sprintf('Could not delete database %s ',$arg['db'])
             );
         }
 
@@ -2467,29 +2311,29 @@ class TxtSQLCore extends TxtSQL
         if (!$this->_dbExist($arg[0])) {
             return $this->_error(
                 E_USER_NOTICE,
-                'Database \''.$arg[0].'\' doesn\'t exist'
+                sprintf('Database %s doesn\'t exist',$arg[0])
             );
         } elseif ($this->_dbExist($arg[1])
             && (strtolower($arg[0]) != strtolower($arg[1]))) {
             return $this->_error(
                 E_USER_NOTICE,
-                'Database \''.$arg[1].'\' already exists'
+                sprintf('Database %s already exists',$arg[1])
             );
         }
 
         /* Make sure the database isn't locked */
-        if ($this->isLocked($this->_SELECTEDDB)) {
+        if ($this->isLocked($this->dbName)) {
             return $this->_error(
                 E_USER_NOTICE,
-                'Database \''.$this->_SELECTEDDB.'\' is locked'
+                sprintf('Database %s is locked',$this->dbName)
             );
         }
 
         /* Do the renaming */
-        if (!@rename("$this->_LIBPATH/$arg[0]", "$this->_LIBPATH/$arg[1]")) {
+        if (!@rename("$this->dbPath/$arg[0]", "$this->dbPath/$arg[1]")) {
             $this->_error(
                 E_USER_ERROR,
-                'Could not rename database \''.$arg[0].'\', to \''.$arg[1].'\''
+                sprintf('Could not rename database %s to %s', $arg[0], $arg[1])
             );
         }
 

@@ -181,7 +181,7 @@ class SqlParser extends WordParser
         while ($word = $this->getNextWord(true)) {
 
             if (strtolower(substr($word, 0, 3)) == 'set') {
-                $this->c -= strlen($word) + 1;
+                $this->characterIndex -= strlen($word) + 1;
                 break;
             }
 
@@ -189,21 +189,21 @@ class SqlParser extends WordParser
                 /* Back up if we find these keywords */
                 case 'from' :
                     {
-                        $this->c -= 5;
+                        $this->characterIndex -= 5;
 
                         break 2;
                     }
 
                 case 'limit' :
                     {
-                        $this->c -= 6;
+                        $this->characterIndex -= 6;
 
                         break 2;
                     }
 
                 case 'orderby' :
                     {
-                        $this->c -= 8;
+                        $this->characterIndex -= 8;
 
                         break 2;
                     }
@@ -223,7 +223,7 @@ class SqlParser extends WordParser
                 /* Append the current value to the clause */
                 default :
                     {
-                        $this->c -= strlen($word) + 1;
+                        $this->characterIndex -= strlen($word) + 1;
                         $clause .= $this->getNextWord(true).' ';
                     }
             }
@@ -261,21 +261,21 @@ class SqlParser extends WordParser
                 /* Back up if we find these keywords */
                 case 'from' :
                     {
-                        $this->c -= 5;
+                        $this->characterIndex -= 5;
 
                         break 2;
                     }
 
                 case 'limit' :
                     {
-                        $this->c -= 6;
+                        $this->characterIndex -= 6;
 
                         break 2;
                     }
 
                 case 'orderby' :
                     {
-                        $this->c -= 8;
+                        $this->characterIndex -= 8;
 
                         break 2;
                     }
@@ -335,7 +335,7 @@ class SqlParser extends WordParser
     private function getValueSet(&$arguments)
     {
         /* Get all the values */
-        $this->c--;
+        $this->characterIndex--;
         $word = $this->getNextWord(true);
 
         switch (true) {
@@ -485,7 +485,7 @@ class SqlParser extends WordParser
                 default :
                     {
                         if (empty($arguments['table'])) {
-                            $this->c -= strlen($word) + 1;
+                            $this->characterIndex -= strlen($word) + 1;
                             $column = $this->getNextWord(
                                 true,
                                 $this->whitespace.","
@@ -506,7 +506,7 @@ class SqlParser extends WordParser
                                 break;
                             }
 
-                            $this->c -= strlen($nextword) + 1;
+                            $this->characterIndex -= strlen($nextword) + 1;
                         }
                     }
             }
@@ -874,7 +874,7 @@ class SqlParser extends WordParser
                                                     $column_parser->getNextWord(
                                                     )
                                                 ) != 'key') {
-                                                $column_parser->c -= 7;
+                                                $column_parser->characterIndex -= 7;
                                                 $column_parser->throwSyntaxError(
                                                     $arguments
                                                 );
@@ -1171,7 +1171,7 @@ class SqlParser extends WordParser
                 /* Grab the value-set */
                 case (strtolower(substr($word, 0, 3)) == 'set') :
                     {
-                        $this->c -= strlen($word) + 1;
+                        $this->characterIndex -= strlen($word) + 1;
                         $this->getValueSet($arguments);
 
                         break;
@@ -1181,7 +1181,7 @@ class SqlParser extends WordParser
                 case (strtolower($word) == 'where') :
                     {
                         $this->parseWhere($arguments);
-                        $this->c--;
+                        $this->characterIndex--;
 
                         break;
                     }

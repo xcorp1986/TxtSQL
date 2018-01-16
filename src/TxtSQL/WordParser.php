@@ -16,7 +16,7 @@ class WordParser
      *
      * @var bool
      */
-    public $c = -1;
+    public $characterIndex = -1;
 
     /**
      * The last word returned successfully
@@ -71,7 +71,7 @@ class WordParser
             $this->word = $string;
 
             if ($resetCharacterIndex === true) {
-                $this->c = -1;
+                $this->characterIndex = -1;
             }
 
             return true;
@@ -111,14 +111,14 @@ class WordParser
         while (($c = $this->getNextLetter()) !== false) {
             /* Inside a comment */
             if ($inComment === true) {
-                if ($c == '*' && $this->word{$this->c + 1} == '/') {
+                if ($c == '*' && $this->word{$this->characterIndex + 1} == '/') {
                     $inComment = false;
-                    $this->c++;
+                    $this->characterIndex++;
                 }
 
                 continue;
             } /* Start of a comment */
-            elseif ($c == '/' && $this->word{$this->c + 1} == '*') {
+            elseif ($c == '/' && $this->word{$this->characterIndex + 1} == '*') {
                 if ($inSQuotes === true || $inDQuotes === true) {
                     $word .= '/';
                     continue;
@@ -162,7 +162,7 @@ this is the end of the word */
                                 continue;
                             }
 
-                            $this->c++;
+                            $this->characterIndex++;
 
                             return $word;
                         }
@@ -199,7 +199,7 @@ this is the end of the word */
                                 continue;
                             }
 
-                            $this->c++;
+                            $this->characterIndex++;
 
                             return $word;
                         }
@@ -234,7 +234,7 @@ this is the end of the word */
                 continue;
             } /* End of an SQL statement */
             elseif ($c == ';') {
-                $this->c--;
+                $this->characterIndex--;
 
                 return $word;
             } /* Eliminate whitespace characters */
@@ -253,8 +253,8 @@ this is the end of the word */
         }
 
         /* Add a NULL byte to the end of the word */
-        if ($this->c < strlen($this->word)) {
-            if ($this->word{$this->c - 1} != null) {
+        if ($this->characterIndex < strlen($this->word)) {
+            if ($this->word{$this->characterIndex - 1} != null) {
                 $word .= null;
             }
         }
@@ -272,11 +272,11 @@ this is the end of the word */
     public function getNextLetter()
     {
         /* Increment the character index */
-        $this->c++;
+        $this->characterIndex++;
 
         /* If there is another letter, then return it */
-        if ($this->c < strlen($this->word)) {
-            return $this->word{$this->c};
+        if ($this->characterIndex < strlen($this->word)) {
+            return $this->word{$this->characterIndex};
         }
 
         return false;
@@ -293,7 +293,7 @@ this is the end of the word */
     protected function throwSyntaxError(&$arguments)
     {
         $arguments = false;
-        $error = substr($this->word, $this->c - 10, $this->c + 10);
+        $error = substr($this->word, $this->characterIndex - 10, $this->characterIndex + 10);
         TxtSQL::_error(E_USER_NOTICE, "Syntax error near `$error`");
 
         return true;
