@@ -1714,9 +1714,11 @@ class TxtSQL
                     /* LIKE Operator */
                 case '!~' :
                     $op = ($op == '!~') ? 'notlike' : $op;
+                    break;
 
                 case '=~' :
                     $op = ($op == '=~') ? 'like' : $op;
+                    break;
 
                 /* Inequality Operator */
                 case '<=' :
@@ -1725,6 +1727,7 @@ class TxtSQL
                     /* Equality Operator */
                 case '='  :
                     $op = ($op == '=') ? '==' : $op;
+                break;
 
                 case '<>' :
 
@@ -1739,9 +1742,11 @@ class TxtSQL
                     /* Regex Operator */
                 case 'regexp' :
                     $op = ($op == 'regexp') ? '%=' : $op;
+                break;
 
                 case 'notregexp' :
                     $op = ($op == 'notregexp') ? '!%' : $op;
+                    break;
 
                 /* LIKE Operator */
                 case 'notlike' :
