@@ -1,18 +1,5 @@
 <?php
 
-
-/**
- * Defines a constant with the default value of './'
- *
- * @return void
- */
-function defineConstant($value)
-{
-    if (!defined($value)) {
-        define($value, './');
-    }
-}
-
 /**
  * Returns the microtime
  *
